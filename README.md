@@ -8,15 +8,25 @@
 ## Структура проекта
 
 task-tracker/
-├─ frontend/          # React проект на Vite
+
+├─ frontend/  # React проект на Vite
+
 │   ├─ package.json
+
 │   ├─ vite.config.ts
+
 │   └─ src/
+
 │       ├─ lib/
+
 │       │   └─ supabase.ts   # инициализация Supabase клиента
+
 │       └─ App.tsx
+
 ├─ supabase/          # Настройки Supabase / миграции (опционально)
+
 ├─ docs/              # Документация, схемы и т.д.
+
 └─ README.md
 
 ---
