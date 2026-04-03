@@ -1,60 +1,112 @@
-###### \# Task Tracker
+# Task Tracker
 
-###### 
+Простой таск-трекер с фронтендом на React (Vite) и бэкендом на Supabase.
+Позволяет создавать задачи, хранить их в базе и прикреплять файлы.
 
-###### \## Stack
+---
 
-###### \- React (Vite)
+## Структура проекта
 
-###### \- Supabase
+task-tracker/
+├─ frontend/          # React проект на Vite
+│   ├─ package.json
+│   ├─ vite.config.ts
+│   └─ src/
+│       ├─ lib/
+│       │   └─ supabase.ts   # инициализация Supabase клиента
+│       └─ App.tsx
+├─ supabase/          # Настройки Supabase / миграции (опционально)
+├─ docs/              # Документация, схемы и т.д.
+└─ README.md
 
-###### 
+---
 
-###### \## Run locally
+## Установка и запуск локально
 
-###### 
+Перейти в папку фронтенда:
 
-###### 1\. Перейти в папку фронтенда:
+cd frontend
 
-###### \# Task Tracker
+Установить зависимости:
 
-###### 
+npm install
 
-###### \## Stack
+Создать файл `.env` на основе `.env.example`:
 
-###### \- React (Vite)
+VITE_SUPABASE_URL=ваш-url-проекта
+VITE_SUPABASE_ANON_KEY=ваш-anon-key
 
-###### \- Supabase
+Получить URL проекта и ANON KEY можно в Supabase: Settings → API → Project URL / Anon Key
 
-###### 
+Запустить сервер разработки:
 
-###### \## Run locally
+npm run dev
 
-###### 
+Открыть в браузере:
 
-###### 1\. Перейти в папку фронтенда:
+http://127.0.0.1:5173
 
+Если порт занят, Vite предложит свободный порт, используйте его.
 
+---
 
-###### cd frontend
+## Работа с Supabase
 
-###### 
+Файл инициализации: `frontend/src/lib/supabase.ts`
 
-###### 
+import { createClient } from '@supabase/supabase-js'
 
-###### 2\. Установить зависимости:
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-###### 
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-###### npm install
+Пример запроса к таблице `tasks`:
 
-###### 
+const { data, error } = await supabase.from('tasks').select('*')
 
-###### 
+Файл `.env.example`:
 
-###### 3\. Запустить локальный сервер:
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
 
-###### 
+Копировать `.env.example` → `.env` и вставлять свои ключи.
 
-###### npm run dev
+---
 
+## CI / GitHub Actions (опционально)
+
+Файл: `.github/workflows/ci.yml`
+
+Автоматическая сборка фронтенда при пуше или pull request:
+
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 24
+      - run: npm install
+        working-directory: ./frontend
+      - run: npm run build
+        working-directory: ./frontend
+
+---
+
+## Дополнительно
+
+- Фронтенд React (Vite) — для интерфейса
+- Supabase — база данных, хранение файлов, аутентификация
+- Можно расширять проект: добавлять авторизацию, прикрепление файлов, фильтры задач и т.д.
