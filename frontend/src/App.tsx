@@ -6,7 +6,7 @@ import CourseDetails from './pages/CourseDetails';
 import TaskDetails from './pages/TaskDetails';
 import CalendarPage from './pages/CalendarPage';
 import { supabase } from './lib/supabase';
-
+import ProtectedRoute from './components/ProtectedRoute';
 function Navigation() {
   const location = useLocation();
 
@@ -44,7 +44,7 @@ function Navigation() {
                     font: 'inherit'
                 }}
             >
-                Выходf
+                Выход
             </button>
         </nav>
       </div>
@@ -58,11 +58,39 @@ function App() {
             <Navigation/>
             <Routes>
                 <Route path="/" element={<AuthPage/>}/>
-                <Route path="/courses" element={<CoursesPage />} />
-        <Route path="/courses/:id" element={<CourseDetails />} />
-        <Route path="/tasks/:id" element={<TaskDetails />} />
-        {/* НОВАЯ СТРОЧКА ДЛЯ КАЛЕНДАРЯ */}
-        <Route path="/calendar" element={<CalendarPage />} />
+                <Route
+                    path="/courses"
+                    element={
+                        <ProtectedRoute>
+                            <CoursesPage />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/courses/:id"
+                    element={
+                        <ProtectedRoute>
+                            <CourseDetails />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/tasks/:id"
+                    element={
+                        <ProtectedRoute>
+                            <TaskDetails />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/calendar"
+                    element={
+                        <ProtectedRoute>
+                            <CalendarPage />
+                        </ProtectedRoute>
+                    }
+                />
       </Routes>
     </BrowserRouter>
   );
