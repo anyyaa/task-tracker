@@ -16,8 +16,16 @@ export default function CourseDetails() {
   const [loading, setLoading] = useState(true);
   const [newTaskTitle, setNewTaskTitle] = useState('');
 
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isAddingTask, setIsAddingTask] = useState(false);
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
+  const [togglingTaskId, setTogglingTaskId] = useState<string | null>(null);
+
   useEffect(() => {
     const fetchTasks = async () => {
+      setLoading(true);
+      setErrorMessage('');
+
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
@@ -26,24 +34,39 @@ export default function CourseDetails() {
 
       if (error) {
         console.error('Ошибка загрузки задач:', error);
+        setErrorMessage('Не удалось загрузить задачи. Попробуйте обновить страницу.');
+        setTasks([]);
       } else {
         setTasks(data || []);
       }
+
       setLoading(false);
     };
 
-    if (id) fetchTasks();
+    if (id) {
+      fetchTasks();
+    } else {
+      setErrorMessage('Не найден id курса.');
+      setLoading(false);
+    }
   }, [id]);
 
   const addTask = async () => {
     if (!newTaskTitle.trim()) {
-      alert('Введите название задачи');
+      setErrorMessage('Введите название задачи.');
       return;
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
+    setErrorMessage('');
+    setIsAddingTask(true);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     if (!user) {
-      alert('Вы не авторизованы');
+      setErrorMessage('Вы не авторизованы.');
+      setIsAddingTask(false);
       return;
     }
 
@@ -51,7 +74,7 @@ export default function CourseDetails() {
       .from('tasks')
       .insert([
         {
-          title: newTaskTitle,
+          title: newTaskTitle.trim(),
           course_id: id,
           user_id: user.id,
           is_completed: false,
@@ -61,30 +84,42 @@ export default function CourseDetails() {
       .single();
 
     if (error) {
-      alert('Ошибка создания задачи: ' + error.message);
+      setErrorMessage('Ошибка создания задачи: ' + error.message);
     } else if (data) {
-      setTasks([data, ...tasks]);
+      setTasks((prevTasks) => [data, ...prevTasks]);
       setNewTaskTitle('');
     }
+
+    setIsAddingTask(false);
   };
 
   const toggleTask = async (taskId: string, currentStatus: boolean) => {
+    setErrorMessage('');
+    setTogglingTaskId(taskId);
+
     const { error } = await supabase
       .from('tasks')
       .update({ is_completed: !currentStatus })
       .eq('id', taskId);
 
     if (error) {
-      alert('Ошибка обновления: ' + error.message);
+      setErrorMessage('Ошибка обновления задачи: ' + error.message);
     } else {
-      setTasks(tasks.map(task =>
-        task.id === taskId ? { ...task, is_completed: !currentStatus } : task
-      ));
+      setTasks((prevTasks) =>
+        prevTasks.map((task) =>
+          task.id === taskId ? { ...task, is_completed: !currentStatus } : task
+        )
+      );
     }
+
+    setTogglingTaskId(null);
   };
 
   const deleteTask = async (taskId: string) => {
     if (!window.confirm('Удалить задачу?')) return;
+
+    setErrorMessage('');
+    setDeletingTaskId(taskId);
 
     const { error } = await supabase
       .from('tasks')
@@ -92,14 +127,17 @@ export default function CourseDetails() {
       .eq('id', taskId);
 
     if (error) {
-      alert('Ошибка удаления: ' + error.message);
+      setErrorMessage('Ошибка удаления задачи: ' + error.message);
     } else {
-      setTasks(tasks.filter(task => task.id !== taskId));
+      setTasks((prevTasks) => prevTasks.filter((task) => task.id !== taskId));
     }
+
+    setDeletingTaskId(null);
   };
 
   const formatDeadline = (deadline: string | null) => {
     if (!deadline) return 'Без срока';
+
     const date = new Date(deadline);
     return date.toLocaleDateString('ru-RU', {
       day: 'numeric',
@@ -118,14 +156,22 @@ export default function CourseDetails() {
   if (loading) {
     return (
       <div className="container">
-        <p>Загрузка задач...</p>
+        <Link to="/courses" className="back-link">
+          &larr; Назад к списку курсов
+        </Link>
+
+        <p style={{ textAlign: 'center', padding: '40px', color: 'var(--color-text-muted)' }}>
+          Загрузка задач...
+        </p>
       </div>
     );
   }
 
   return (
     <div className="container">
-      <Link to="/courses" className="back-link">&larr; Назад к списку курсов</Link>
+      <Link to="/courses" className="back-link">
+        &larr; Назад к списку курсов
+      </Link>
 
       <div className="course-header-flex">
         <div>
@@ -134,91 +180,161 @@ export default function CourseDetails() {
             Управляйте задачами этого курса
           </p>
         </div>
-        
-        {/* Форма добавления задачи */}
+
         <div style={{ display: 'flex', gap: '8px' }}>
           <input
             type="text"
             value={newTaskTitle}
             onChange={(e) => setNewTaskTitle(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && addTask()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !isAddingTask) {
+                addTask();
+              }
+            }}
             placeholder="Название задачи"
+            disabled={isAddingTask}
             style={{
               padding: '8px 12px',
               borderRadius: '8px',
               border: '1px solid var(--color-border)',
               background: 'var(--color-bg-secondary)',
               color: 'var(--color-text)',
+              opacity: isAddingTask ? 0.7 : 1,
             }}
           />
-          <button className="btn-primary" onClick={addTask} style={{ padding: '8px 16px', fontSize: '14px' }}>
-            + Добавить задачу
+
+          <button
+            className="btn-primary"
+            onClick={addTask}
+            disabled={isAddingTask}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              opacity: isAddingTask ? 0.7 : 1,
+              cursor: isAddingTask ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {isAddingTask ? 'Добавление...' : '+ Добавить задачу'}
           </button>
         </div>
       </div>
 
+      {errorMessage && (
+        <div
+          style={{
+            marginTop: '16px',
+            marginBottom: '16px',
+            padding: '12px 16px',
+            borderRadius: '10px',
+            background: 'rgba(255, 80, 80, 0.12)',
+            border: '1px solid rgba(255, 80, 80, 0.35)',
+            color: '#ff6b6b',
+          }}
+        >
+          {errorMessage}
+        </div>
+      )}
+
       <div className="task-list">
         {tasks.length === 0 ? (
-          <p style={{ color: 'var(--color-text-muted)', textAlign: 'center', padding: '40px' }}>
+          <p
+            style={{
+              color: 'var(--color-text-muted)',
+              textAlign: 'center',
+              padding: '40px',
+            }}
+          >
             Нет задач. Создайте первую!
           </p>
         ) : (
-          tasks.map((task) => (
-            <div key={task.id} className="task-item" style={{ opacity: task.is_completed ? 0.6 : 1 }}>
-              <div className="task-main">
-                {/* Чекбокс для отметки выполнения */}
-                <div
-                  className={`task-checkbox ${task.is_completed ? 'done' : ''}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleTask(task.id, task.is_completed);
-                  }}
-                  style={{ cursor: 'pointer' }}
-                ></div>
-                
-                <Link
-                  to={`/tasks/${task.id}`}
-                  style={{
-                    fontWeight: '500',
-                    textDecoration: task.is_completed ? 'line-through' : 'none',
-                    color: 'var(--color-text)',
-                  }}
-                >
-                  {task.title}
-                </Link>
-              </div>
-              
-              <div className="task-meta" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div className={`deadline-badge ${isUrgent(task.deadline) ? 'urgent' : ''}`}>
-                  {task.is_completed ? '[Выполнено]' : formatDeadline(task.deadline)}
+          tasks.map((task) => {
+            const isDeletingThisTask = deletingTaskId === task.id;
+            const isTogglingThisTask = togglingTaskId === task.id;
+            const isBusy = isDeletingThisTask || isTogglingThisTask;
+
+            return (
+              <div
+                key={task.id}
+                className="task-item"
+                style={{
+                  opacity: task.is_completed ? 0.6 : 1,
+                }}
+              >
+                <div className="task-main">
+                  <div
+                    className={`task-checkbox ${task.is_completed ? 'done' : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!isBusy) {
+                        toggleTask(task.id, task.is_completed);
+                      }
+                    }}
+                    style={{
+                      cursor: isBusy ? 'not-allowed' : 'pointer',
+                      opacity: isTogglingThisTask ? 0.5 : 1,
+                      pointerEvents: isBusy ? 'none' : 'auto',
+                    }}
+                  ></div>
+
+                  <Link
+                    to={`/tasks/${task.id}`}
+                    style={{
+                      fontWeight: '500',
+                      textDecoration: task.is_completed ? 'line-through' : 'none',
+                      color: 'var(--color-text)',
+                      pointerEvents: isDeletingThisTask ? 'none' : 'auto',
+                      opacity: isDeletingThisTask ? 0.5 : 1,
+                    }}
+                  >
+                    {task.title}
+                  </Link>
                 </div>
-                
-                {/* Кнопка удаления */}
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    deleteTask(task.id);
-                  }}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--color-text-muted)',
-                    cursor: 'pointer',
-                    fontSize: '18px',
-                    padding: '4px 8px',
-                  }}
-                  title="Удалить задачу"
+
+                <div
+                  className="task-meta"
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px' }}
                 >
-                  🗑️
-                </button>
-                
-                <Link to={`/tasks/${task.id}`} style={{ color: 'var(--color-text-muted)' }}>
-                  &rarr;
-                </Link>
+                  <div className={`deadline-badge ${isUrgent(task.deadline) ? 'urgent' : ''}`}>
+                    {task.is_completed ? '[Выполнено]' : formatDeadline(task.deadline)}
+                  </div>
+
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (!isDeletingThisTask) {
+                        deleteTask(task.id);
+                      }
+                    }}
+                    disabled={isDeletingThisTask}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--color-text-muted)',
+                      cursor: isDeletingThisTask ? 'not-allowed' : 'pointer',
+                      fontSize: '18px',
+                      padding: '4px 8px',
+                      opacity: isDeletingThisTask ? 0.5 : 1,
+                    }}
+                    title="Удалить задачу"
+                  >
+                    {isDeletingThisTask ? '...' : '🗑️'}
+                  </button>
+
+                  <Link
+                    to={`/tasks/${task.id}`}
+                    style={{
+                      color: 'var(--color-text-muted)',
+                      pointerEvents: isDeletingThisTask ? 'none' : 'auto',
+                      opacity: isDeletingThisTask ? 0.5 : 1,
+                    }}
+                  >
+                    &rarr;
+                  </Link>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
