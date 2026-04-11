@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
@@ -22,20 +22,30 @@ interface CourseAttachment {
 
 export default function CourseDetails() {
   const { id } = useParams();
+
+  const [courseName, setCourseName] = useState<string>('');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [attachments, setAttachments] = useState<CourseAttachment[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [attachmentsLoading, setAttachmentsLoading] = useState(true);
-  const [courseName, setCourseName] = useState<string>('');
 
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDeadline, setNewTaskDeadline] = useState('');
 
+  const [newAttachmentLink, setNewAttachmentLink] = useState('');
+  const [selectedAttachmentFile, setSelectedAttachmentFile] = useState<File | null>(null);
+
   const [errorMessage, setErrorMessage] = useState('');
   const [attachmentsError, setAttachmentsError] = useState('');
   const [isAddingTask, setIsAddingTask] = useState(false);
+  const [isAddingAttachment, setIsAddingAttachment] = useState(false);
+
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const [togglingTaskId, setTogglingTaskId] = useState<string | null>(null);
+  const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null);
+
+  const attachmentFileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -43,16 +53,16 @@ export default function CourseDetails() {
       setErrorMessage('');
 
       const { data: courseData, error: courseError } = await supabase
-  .from('courses')
-  .select('name')
-  .eq('id', id)
-  .single();
+        .from('courses')
+        .select('name')
+        .eq('id', id)
+        .single();
 
-if (courseError) {
-  console.error('Ошибка загрузки курса:', courseError);
-} else {
-  setCourseName(courseData.name);
-}
+      if (courseError) {
+        console.error('Ошибка загрузки курса:', courseError);
+      } else {
+        setCourseName(courseData?.name || '');
+      }
 
       const { data, error } = await supabase
         .from('tasks')
@@ -132,6 +142,33 @@ if (courseError) {
     fetchAttachments();
   }, [id]);
 
+  const formatDeadline = (deadline: string | null) => {
+    if (!deadline) return 'Без срока';
+
+    const date = new Date(deadline);
+    return date.toLocaleDateString('ru-RU', {
+      day: 'numeric',
+      month: 'long',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const isUrgent = (deadline: string | null) => {
+    if (!deadline) return false;
+    const diff = new Date(deadline).getTime() - Date.now();
+    return diff > 0 && diff < 24 * 60 * 60 * 1000;
+  };
+
+  const isValidUrl = (value: string) => {
+    try {
+      new URL(value);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const addTask = async () => {
     if (!newTaskTitle.trim()) {
       setErrorMessage('Введите название задачи.');
@@ -168,6 +205,150 @@ if (courseError) {
     }
 
     setIsAddingTask(false);
+  };
+
+  const addAttachment = async () => {
+    if (!id) {
+      setAttachmentsError('Не найден id курса.');
+      return;
+    }
+
+    if (!selectedAttachmentFile && !newAttachmentLink.trim()) {
+      setAttachmentsError('Выберите файл или введите ссылку.');
+      return;
+    }
+
+    if (newAttachmentLink.trim() && !isValidUrl(newAttachmentLink.trim())) {
+      setAttachmentsError('Введите корректную ссылку. Она должна начинаться с http:// или https://');
+      return;
+    }
+
+    setAttachmentsError('');
+    setIsAddingAttachment(true);
+
+    if (selectedAttachmentFile) {
+      const safeFileName = selectedAttachmentFile.name
+        .replace(/\s+/g, '_')
+        .replace(/[^a-zA-Z0-9._-]/g, '_');
+
+      const filePath = `courses/${id}/${Date.now()}_${safeFileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('file_attachments')
+        .upload(filePath, selectedAttachmentFile);
+
+      if (uploadError) {
+        setAttachmentsError('Файл не загрузился: ' + uploadError.message);
+        setIsAddingAttachment(false);
+        return;
+      }
+
+      const { data: insertedAttachment, error: attachmentError } = await supabase
+        .from('course_attachments')
+        .insert([
+          {
+            id: crypto.randomUUID(),
+            course_id: id,
+            name: selectedAttachmentFile.name,
+            url: filePath,
+            is_external: false,
+          },
+        ])
+        .select()
+        .single();
+
+      if (attachmentError) {
+        setAttachmentsError('Файл загружен, но запись не сохранилась: ' + attachmentError.message);
+        setIsAddingAttachment(false);
+        return;
+      }
+
+      const { data: publicData } = supabase.storage
+        .from('file_attachments')
+        .getPublicUrl(filePath);
+
+      setAttachments((prev) => [
+        {
+          ...insertedAttachment,
+          publicUrl: publicData.publicUrl,
+        },
+        ...prev,
+      ]);
+
+      setSelectedAttachmentFile(null);
+      if (attachmentFileInputRef.current) {
+        attachmentFileInputRef.current.value = '';
+      }
+    }
+
+    if (newAttachmentLink.trim()) {
+      const cleanLink = newAttachmentLink.trim();
+
+      const { data: insertedLink, error: linkError } = await supabase
+        .from('course_attachments')
+        .insert([
+          {
+            id: crypto.randomUUID(),
+            course_id: id,
+            name: cleanLink,
+            url: cleanLink,
+            is_external: true,
+          },
+        ])
+        .select()
+        .single();
+
+      if (linkError) {
+        setAttachmentsError('Ссылка не сохранилась: ' + linkError.message);
+        setIsAddingAttachment(false);
+        return;
+      }
+
+      setAttachments((prev) => [
+        {
+          ...insertedLink,
+          publicUrl: cleanLink,
+        },
+        ...prev,
+      ]);
+
+      setNewAttachmentLink('');
+    }
+
+    setIsAddingAttachment(false);
+  };
+
+  const deleteAttachment = async (attachment: CourseAttachment) => {
+    const confirmed = window.confirm('Удалить материал курса?');
+    if (!confirmed) return;
+
+    setAttachmentsError('');
+    setDeletingAttachmentId(attachment.id);
+
+    if (!attachment.is_external) {
+      const { error: storageError } = await supabase.storage
+        .from('file_attachments')
+        .remove([attachment.url]);
+
+      if (storageError) {
+        setAttachmentsError('Не удалось удалить файл из хранилища: ' + storageError.message);
+        setDeletingAttachmentId(null);
+        return;
+      }
+    }
+
+    const { error } = await supabase
+      .from('course_attachments')
+      .delete()
+      .eq('id', attachment.id);
+
+    if (error) {
+      setAttachmentsError('Не удалось удалить материал курса: ' + error.message);
+    } else {
+      setAttachments((prev) => prev.filter((item) => item.id !== attachment.id));
+    }
+
+    setDeletingAttachmentId(null);
   };
 
   const toggleTask = async (taskId: string, currentStatus: boolean) => {
@@ -212,24 +393,6 @@ if (courseError) {
     setDeletingTaskId(null);
   };
 
-  const formatDeadline = (deadline: string | null) => {
-    if (!deadline) return 'Без срока';
-
-    const date = new Date(deadline);
-    return date.toLocaleDateString('ru-RU', {
-      day: 'numeric',
-      month: 'long',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const isUrgent = (deadline: string | null) => {
-    if (!deadline) return false;
-    const diff = new Date(deadline).getTime() - Date.now();
-    return diff > 0 && diff < 24 * 60 * 60 * 1000;
-  };
-
   if (loading) {
     return (
       <div className="container">
@@ -252,9 +415,7 @@ if (courseError) {
 
       <div className="course-header-flex">
         <div>
-          <h2 className="page-title">
-            {courseName || `Курс ID: ${id}`}
-          </h2>
+          <h2 className="page-title">{courseName || `Курс ID: ${id}`}</h2>
           <p style={{ color: 'var(--color-text-muted)', marginTop: '8px' }}>
             Управляйте задачами этого курса
           </p>
@@ -349,6 +510,54 @@ if (courseError) {
           </div>
         )}
 
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <input
+            type="text"
+            value={newAttachmentLink}
+            onChange={(e) => setNewAttachmentLink(e.target.value)}
+            placeholder="Добавить ссылку на материал курса"
+            disabled={isAddingAttachment}
+            style={{
+              padding: '10px 12px',
+              borderRadius: '8px',
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-bg-secondary)',
+              color: 'var(--color-text)',
+              opacity: isAddingAttachment ? 0.7 : 1,
+            }}
+          />
+
+          <input
+            ref={attachmentFileInputRef}
+            type="file"
+            onChange={(e) => {
+              const file = e.target.files?.[0] || null;
+              setSelectedAttachmentFile(file);
+            }}
+            disabled={isAddingAttachment}
+          />
+
+          {selectedAttachmentFile && (
+            <div style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>
+              Выбран файл: {selectedAttachmentFile.name}
+            </div>
+          )}
+
+          <div>
+            <button
+              className="btn-primary"
+              onClick={addAttachment}
+              disabled={isAddingAttachment}
+              style={{
+                opacity: isAddingAttachment ? 0.7 : 1,
+                cursor: isAddingAttachment ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {isAddingAttachment ? 'Добавление...' : 'Добавить материал'}
+            </button>
+          </div>
+        </div>
+
         {attachmentsLoading ? (
           <p style={{ color: 'var(--color-text-muted)' }}>Загрузка материалов курса...</p>
         ) : attachments.length === 0 ? (
@@ -357,22 +566,60 @@ if (courseError) {
           </p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {attachments.map((attachment) => (
-              <a
-                key={attachment.id}
-                href={attachment.publicUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="attachment-item"
-                style={{
-                  textDecoration: 'none',
-                  color: 'var(--color-text)',
-                }}
-              >
-                <span style={{ fontSize: '20px' }}>📎</span>
-                <span>{attachment.name}</span>
-              </a>
-            ))}
+            {attachments.map((attachment) => {
+              const isDeletingThisAttachment = deletingAttachmentId === attachment.id;
+
+              return (
+                <div
+                  key={attachment.id}
+                  className="attachment-item"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                  }}
+                >
+                  <a
+                    href={attachment.publicUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      textDecoration: 'none',
+                      color: 'var(--color-text)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      flexGrow: 1,
+                      opacity: isDeletingThisAttachment ? 0.5 : 1,
+                      pointerEvents: isDeletingThisAttachment ? 'none' : 'auto',
+                    }}
+                  >
+                    <span style={{ fontSize: '20px' }}>
+                      {attachment.is_external ? '🔗' : '📎'}
+                    </span>
+                    <span>{attachment.name}</span>
+                  </a>
+
+                  <button
+                    onClick={() => deleteAttachment(attachment)}
+                    disabled={isDeletingThisAttachment}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#d32f2f',
+                      cursor: isDeletingThisAttachment ? 'not-allowed' : 'pointer',
+                      fontSize: '16px',
+                      padding: '4px 8px',
+                      opacity: isDeletingThisAttachment ? 0.5 : 1,
+                    }}
+                    title="Удалить материал"
+                  >
+                    {isDeletingThisAttachment ? '...' : '🗑️'}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
