@@ -8,15 +8,30 @@ interface Task {
   is_completed: boolean;
   deadline: string | null;
   course_id: string;
+  description?: string | null;
+}
+
+interface CourseAttachment {
+  id: string;
+  course_id: string;
+  name: string;
+  url: string;
+  is_external: boolean;
+  publicUrl: string;
 }
 
 export default function CourseDetails() {
   const { id } = useParams();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [attachments, setAttachments] = useState<CourseAttachment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [attachmentsLoading, setAttachmentsLoading] = useState(true);
+
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskDeadline, setNewTaskDeadline] = useState('');
 
   const [errorMessage, setErrorMessage] = useState('');
+  const [attachmentsError, setAttachmentsError] = useState('');
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const [togglingTaskId, setTogglingTaskId] = useState<string | null>(null);
@@ -51,24 +66,72 @@ export default function CourseDetails() {
     }
   }, [id]);
 
+  useEffect(() => {
+    const fetchAttachments = async () => {
+      if (!id) {
+        setAttachmentsError('Не найден id курса.');
+        setAttachmentsLoading(false);
+        return;
+      }
+
+      setAttachmentsLoading(true);
+      setAttachmentsError('');
+
+      const { data, error } = await supabase
+        .from('course_attachments')
+        .select('*')
+        .eq('course_id', id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Ошибка загрузки файлов курса:', error);
+        setAttachmentsError('Не удалось загрузить материалы курса.');
+        setAttachments([]);
+        setAttachmentsLoading(false);
+        return;
+      }
+
+      const mappedAttachments: CourseAttachment[] = (data || []).map((item: any) => {
+        let publicUrl = item.url;
+
+        if (!item.is_external) {
+          const { data: publicData } = supabase.storage
+            .from('file_attachments')
+            .getPublicUrl(item.url);
+
+          publicUrl = publicData.publicUrl;
+        }
+
+        return {
+          id: item.id,
+          course_id: item.course_id,
+          name: item.name,
+          url: item.url,
+          is_external: item.is_external,
+          publicUrl,
+        };
+      });
+
+      setAttachments(mappedAttachments);
+      setAttachmentsLoading(false);
+    };
+
+    fetchAttachments();
+  }, [id]);
+
   const addTask = async () => {
     if (!newTaskTitle.trim()) {
       setErrorMessage('Введите название задачи.');
       return;
     }
 
-    setErrorMessage('');
-    setIsAddingTask(true);
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setErrorMessage('Вы не авторизованы.');
-      setIsAddingTask(false);
+    if (!id) {
+      setErrorMessage('Не найден id курса.');
       return;
     }
+
+    setErrorMessage('');
+    setIsAddingTask(true);
 
     const { data, error } = await supabase
       .from('tasks')
@@ -76,8 +139,8 @@ export default function CourseDetails() {
         {
           title: newTaskTitle.trim(),
           course_id: id,
-          user_id: user.id,
           is_completed: false,
+          deadline: newTaskDeadline ? new Date(newTaskDeadline).toISOString() : null,
         },
       ])
       .select()
@@ -88,6 +151,7 @@ export default function CourseDetails() {
     } else if (data) {
       setTasks((prevTasks) => [data, ...prevTasks]);
       setNewTaskTitle('');
+      setNewTaskDeadline('');
     }
 
     setIsAddingTask(false);
@@ -181,7 +245,7 @@ export default function CourseDetails() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <input
             type="text"
             value={newTaskTitle}
@@ -192,6 +256,21 @@ export default function CourseDetails() {
               }
             }}
             placeholder="Название задачи"
+            disabled={isAddingTask}
+            style={{
+              padding: '8px 12px',
+              borderRadius: '8px',
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-bg-secondary)',
+              color: 'var(--color-text)',
+              opacity: isAddingTask ? 0.7 : 1,
+            }}
+          />
+
+          <input
+            type="datetime-local"
+            value={newTaskDeadline}
+            onChange={(e) => setNewTaskDeadline(e.target.value)}
             disabled={isAddingTask}
             style={{
               padding: '8px 12px',
@@ -234,6 +313,54 @@ export default function CourseDetails() {
           {errorMessage}
         </div>
       )}
+
+      <div
+        className="content-card"
+        style={{ marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}
+      >
+        <h3 style={{ margin: 0 }}>Материалы курса</h3>
+
+        {attachmentsError && (
+          <div
+            style={{
+              padding: '12px 16px',
+              borderRadius: '10px',
+              background: 'rgba(255, 80, 80, 0.12)',
+              border: '1px solid rgba(255, 80, 80, 0.35)',
+              color: '#ff6b6b',
+            }}
+          >
+            {attachmentsError}
+          </div>
+        )}
+
+        {attachmentsLoading ? (
+          <p style={{ color: 'var(--color-text-muted)' }}>Загрузка материалов курса...</p>
+        ) : attachments.length === 0 ? (
+          <p style={{ color: 'var(--color-text-muted)' }}>
+            У этого курса пока нет прикреплённых файлов.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {attachments.map((attachment) => (
+              <a
+                key={attachment.id}
+                href={attachment.publicUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="attachment-item"
+                style={{
+                  textDecoration: 'none',
+                  color: 'var(--color-text)',
+                }}
+              >
+                <span style={{ fontSize: '20px' }}>📎</span>
+                <span>{attachment.name}</span>
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="task-list">
         {tasks.length === 0 ? (
