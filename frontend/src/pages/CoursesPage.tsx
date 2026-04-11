@@ -16,6 +16,7 @@ export default function CoursesPage() {
 
   const [newCourseName, setNewCourseName] = useState('');
   const [newCourseDescription, setNewCourseDescription] = useState('');
+  const [newCourseLink, setNewCourseLink] = useState('');
   const [isCreatingCourse, setIsCreatingCourse] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
@@ -61,6 +62,7 @@ export default function CoursesPage() {
   const resetCreateForm = () => {
     setNewCourseName('');
     setNewCourseDescription('');
+    setNewCourseLink('');
     setSelectedFile(null);
     setShowCreateForm(false);
     setErrorMessage('');
@@ -70,9 +72,23 @@ export default function CoursesPage() {
     }
   };
 
+  const isValidUrl = (value: string) => {
+    try {
+      new URL(value);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const createCourse = async () => {
     if (!newCourseName.trim()) {
       setErrorMessage('Введите название курса.');
+      return;
+    }
+
+    if (newCourseLink.trim() && !isValidUrl(newCourseLink.trim())) {
+      setErrorMessage('Введите корректную ссылку. Она должна начинаться с http:// или https://');
       return;
     }
 
@@ -127,31 +143,32 @@ export default function CoursesPage() {
 
       if (uploadError) {
         setCourses((prevCourses) => [createdCourse, ...prevCourses]);
-        setErrorMessage(
-          'Курс создан, но файл не загрузился: ' + uploadError.message
-        );
+        setErrorMessage('Курс создан, но файл не загрузился: ' + uploadError.message);
         setNewCourseName('');
         setNewCourseDescription('');
+        setNewCourseLink('');
         setSelectedFile(null);
+
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
+
         setShowCreateForm(false);
         setIsCreatingCourse(false);
         return;
       }
 
       const { error: attachmentError } = await supabase
-  .from('course_attachments')
-  .insert([
-    {
-      id: crypto.randomUUID(),
-      course_id: createdCourse.id,
-      name: selectedFile.name,
-      url: filePath,
-      is_external: false,
-    },
-  ]);
+        .from('course_attachments')
+        .insert([
+          {
+            id: crypto.randomUUID(),
+            course_id: createdCourse.id,
+            name: selectedFile.name,
+            url: filePath,
+            is_external: false,
+          },
+        ]);
 
       if (attachmentError) {
         setCourses((prevCourses) => [createdCourse, ...prevCourses]);
@@ -161,10 +178,48 @@ export default function CoursesPage() {
         );
         setNewCourseName('');
         setNewCourseDescription('');
+        setNewCourseLink('');
         setSelectedFile(null);
+
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
+
+        setShowCreateForm(false);
+        setIsCreatingCourse(false);
+        return;
+      }
+    }
+
+    if (newCourseLink.trim()) {
+      const cleanLink = newCourseLink.trim();
+
+      const { error: linkError } = await supabase
+        .from('course_attachments')
+        .insert([
+          {
+            id: crypto.randomUUID(),
+            course_id: createdCourse.id,
+            name: cleanLink,
+            url: cleanLink,
+            is_external: true,
+          },
+        ]);
+
+      if (linkError) {
+        setCourses((prevCourses) => [createdCourse, ...prevCourses]);
+        setErrorMessage(
+          'Курс создан, но ссылка не сохранилась: ' + linkError.message
+        );
+        setNewCourseName('');
+        setNewCourseDescription('');
+        setNewCourseLink('');
+        setSelectedFile(null);
+
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+
         setShowCreateForm(false);
         setIsCreatingCourse(false);
         return;
@@ -261,6 +316,22 @@ export default function CoursesPage() {
               background: 'var(--color-bg-secondary)',
               color: 'var(--color-text)',
               resize: 'vertical',
+              opacity: isCreatingCourse ? 0.7 : 1,
+            }}
+          />
+
+          <input
+            type="text"
+            value={newCourseLink}
+            onChange={(e) => setNewCourseLink(e.target.value)}
+            placeholder="Ссылка на материал курса (необязательно)"
+            disabled={isCreatingCourse}
+            style={{
+              padding: '10px 12px',
+              borderRadius: '8px',
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-bg-secondary)',
+              color: 'var(--color-text)',
               opacity: isCreatingCourse ? 0.7 : 1,
             }}
           />

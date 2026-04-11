@@ -26,6 +26,7 @@ export default function CourseDetails() {
   const [attachments, setAttachments] = useState<CourseAttachment[]>([]);
   const [loading, setLoading] = useState(true);
   const [attachmentsLoading, setAttachmentsLoading] = useState(true);
+  const [courseName, setCourseName] = useState<string>('');
 
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDeadline, setNewTaskDeadline] = useState('');
@@ -40,6 +41,18 @@ export default function CourseDetails() {
     const fetchTasks = async () => {
       setLoading(true);
       setErrorMessage('');
+
+      const { data: courseData, error: courseError } = await supabase
+  .from('courses')
+  .select('name')
+  .eq('id', id)
+  .single();
+
+if (courseError) {
+  console.error('Ошибка загрузки курса:', courseError);
+} else {
+  setCourseName(courseData.name);
+}
 
       const { data, error } = await supabase
         .from('tasks')
@@ -239,7 +252,9 @@ export default function CourseDetails() {
 
       <div className="course-header-flex">
         <div>
-          <h2 className="page-title">Курс ID: {id}</h2>
+          <h2 className="page-title">
+            {courseName || `Курс ID: ${id}`}
+          </h2>
           <p style={{ color: 'var(--color-text-muted)', marginTop: '8px' }}>
             Управляйте задачами этого курса
           </p>
