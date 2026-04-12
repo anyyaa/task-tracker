@@ -242,9 +242,31 @@ export default function TaskDetails() {
       <div className="content-card">
         <div className="task-detail-header">
           <div>
-            <h2 style={{ fontSize: '24px', marginBottom: '10px' }}>
-              {task.title}
-            </h2>
+            {isEditing ? (
+                <input
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    placeholder="Название задачи"
+                    disabled={isSavingTask}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--color-border)',
+                      background: 'var(--color-bg-secondary)',
+                      color: 'var(--color-text-main)',
+                      fontSize: '24px',
+                      fontWeight: 700,
+                      marginBottom: '10px',
+                      opacity: isSavingTask ? 0.7 : 1,
+                    }}
+                />
+            ) : (
+                <h2 style={{fontSize: '24px', marginBottom: '10px'}}>
+                  {task.title}
+                </h2>
+            )}
 
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
               <span className={`deadline-badge ${isUrgent(task.deadline) ? 'urgent' : ''}`}>
