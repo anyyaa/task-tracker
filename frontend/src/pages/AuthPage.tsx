@@ -4,9 +4,14 @@ import { supabase } from '../lib/supabase';
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
+
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -29,6 +34,14 @@ export default function AuthPage() {
     checkSession();
   }, [navigate]);
 
+  const resetForm = () => {
+    setFirstName('');
+    setLastName('');
+    setEmail('');
+    setPassword('');
+    setConfirmPassword('');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -45,6 +58,21 @@ export default function AuthPage() {
         return;
       }
 
+      if (!firstName.trim()) {
+        setError('Введите имя');
+        return;
+      }
+
+      if (!lastName.trim()) {
+        setError('Введите фамилию');
+        return;
+      }
+
+      if (!confirmPassword.trim()) {
+        setError('Повторите пароль');
+        return;
+      }
+
       if (password !== confirmPassword) {
         setError('Пароли не совпадают');
         return;
@@ -56,6 +84,12 @@ export default function AuthPage() {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
+          options: {
+            data: {
+              first_name: firstName.trim(),
+              last_name: lastName.trim(),
+            },
+          },
         });
 
         if (error) {
@@ -63,12 +97,18 @@ export default function AuthPage() {
           return;
         }
 
-        if (data.user) {
-          setEmail('');
-          setPassword('');
-          setConfirmPassword('');
+        if (data.session) {
+          resetForm();
           navigate('/courses');
+          return;
         }
+
+        if (data.user) {
+          resetForm();
+          setError('Если аккаунт новый, подтвердите регистрацию через почту. Если такой email уже зарегистрирован, просто войдите.');
+          return;
+        }
+
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Ошибка регистрации');
       } finally {
@@ -102,9 +142,7 @@ export default function AuthPage() {
       }
 
       if (data.session) {
-        setEmail('');
-        setPassword('');
-        setConfirmPassword('');
+        resetForm();
         navigate('/courses');
       }
     } catch (err) {
@@ -123,6 +161,33 @@ export default function AuthPage() {
         </p>
 
         <form onSubmit={handleSubmit} className="auth-form">
+          {!isLogin && (
+              <>
+                <div className="input-group">
+                  <label>Имя</label>
+                  <input
+                      type="text"
+                      placeholder="Имя"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      autoComplete="given-name"
+                      required
+                  />
+                </div>
+
+                <div className="input-group">
+                  <label>Фамилия</label>
+                  <input
+                      type="text"
+                      placeholder="Фамилия"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      autoComplete="family-name"
+                      required
+                  />
+                </div>
+              </>
+          )}
           <div className="input-group">
             <label>Email</label>
             <input
@@ -130,6 +195,7 @@ export default function AuthPage() {
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
                 required
             />
           </div>
@@ -141,6 +207,7 @@ export default function AuthPage() {
                 placeholder="Пароль"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete={isLogin ? 'current-password' : 'new-password'}
                 required
             />
           </div>
@@ -154,6 +221,7 @@ export default function AuthPage() {
                   placeholder="Повторите пароль"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
                   required
               />
             </div>
@@ -174,7 +242,7 @@ export default function AuthPage() {
               onClick={() => {
                 setIsLogin(!isLogin);
                 setError('');
-                setConfirmPassword('');
+                resetForm();
               }}
           >
             {isLogin ? 'Создать' : 'Войти'}
