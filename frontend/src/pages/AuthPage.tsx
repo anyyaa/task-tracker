@@ -153,28 +153,6 @@ export default function AuthPage() {
         </p>
 
         <form onSubmit={handleSubmit} className="auth-form">
-
-          <div className="input-group">
-            <label>Email</label>
-            <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-            />
-          </div>
-
-          <div className="input-group">
-            <label>Пароль</label>
-            <input
-                type="password"
-                placeholder="Пароль"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-            />
-          </div>
           {!isLogin && (
               <>
                 <div className="input-group">
@@ -200,6 +178,27 @@ export default function AuthPage() {
                 </div>
               </>
           )}
+          <div className="input-group">
+            <label>Email</label>
+            <input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+            />
+          </div>
+
+          <div className="input-group">
+            <label>Пароль</label>
+            <input
+                type="password"
+                placeholder="Пароль"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+            />
+          </div>
 
           {/* Это поле покажется только если мы на вкладке регистрации */}
           {!isLogin && (
