@@ -190,7 +190,8 @@ export default function CourseDetails() {
           title: newTaskTitle.trim(),
           course_id: id,
           is_completed: false,
-          deadline: newTaskDeadline ? new Date(newTaskDeadline).toISOString() : null,
+          deadline: newTaskDeadline || null,
+
         },
       ])
       .select()
