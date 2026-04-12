@@ -11,6 +11,14 @@ interface Task {
   description?: string | null;
 }
 
+interface TaskAttachment {
+  id: string;
+  task_id: string;
+  name: string;
+  url: string;
+  publicUrl: string;
+}
+
 export default function TaskDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
