@@ -58,6 +58,21 @@ export default function AuthPage() {
         return;
       }
 
+      if (!firstName.trim()) {
+        setError('Введите имя');
+        return;
+      }
+
+      if (!lastName.trim()) {
+        setError('Введите фамилию');
+        return;
+      }
+
+      if (!confirmPassword.trim()) {
+        setError('Повторите пароль');
+        return;
+      }
+
       if (password !== confirmPassword) {
         setError('Пароли не совпадают');
         return;
