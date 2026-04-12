@@ -281,10 +281,10 @@ export default function TaskDetails() {
           <button
             className="btn-primary"
             onClick={toggleTaskStatus}
-            disabled={isUpdatingStatus}
+            disabled={isUpdatingStatus || isEditing || isSavingTask}
             style={{
-              opacity: isUpdatingStatus ? 0.7 : 1,
-              cursor: isUpdatingStatus ? 'not-allowed' : 'pointer',
+              opacity: isUpdatingStatus || isEditing || isSavingTask ? 0.7 : 1,
+              cursor: isUpdatingStatus || isEditing || isSavingTask ? 'not-allowed' : 'pointer',
             }}
           >
             {isUpdatingStatus
@@ -418,22 +418,20 @@ export default function TaskDetails() {
                 Редактировать
               </button>
           )}
-          {!isEditing &&
           <button
             className="btn-secondary"
             onClick={deleteTask}
-            disabled={isDeletingTask}
+            disabled={isDeletingTask || isEditing || isSavingTask}
             style={{
               color: '#d32f2f',
               borderColor: '#ffcdd2',
-              opacity: isDeletingTask ? 0.6 : 1,
-              cursor: isDeletingTask ? 'not-allowed' : 'pointer',
+              opacity: isDeletingTask || isEditing || isSavingTask ? 0.6 : 1,
+              cursor: isDeletingTask || isEditing || isSavingTask ? 'not-allowed' : 'pointer',
               marginLeft: 'auto'
             }}
           >
             {isDeletingTask ? 'Удаление...' : 'Удалить задачу'}
           </button>
-          }
         </div>
       </div>
     </div>
