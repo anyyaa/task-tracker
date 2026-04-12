@@ -572,7 +572,13 @@ export default function TaskDetails() {
               </>
           ) : (
               <>
-                <p>
+                <p
+                  style={{
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'anywhere',
+                  }}
+                >
                   {task.description}
                 </p>
               </>
