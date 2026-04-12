@@ -76,6 +76,52 @@ export default function TaskDetails() {
     fetchTask();
   }, [id]);
 
+  useEffect(() => {
+    const fetchAttachments = async () => {
+      if (!id) {
+        setAttachmentsError('Не найден id задачи.');
+        setAttachmentsLoading(false);
+        return;
+      }
+
+      setAttachmentsLoading(true);
+      setAttachmentsError('');
+
+      const { data, error } = await supabase
+          .from('task_attachments')
+          .select('*')
+          .eq('task_id', id)
+          .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Ошибка загрузки файлов задачи:', error);
+        setAttachmentsError('Не удалось загрузить вложения задачи.');
+        setAttachments([]);
+        setAttachmentsLoading(false);
+        return;
+      }
+
+      const mappedAttachments: TaskAttachment[] = (data || []).map((item: any) => {
+        const { data: publicData } = supabase.storage
+            .from('file_attachments')
+            .getPublicUrl(item.url);
+
+        return {
+          id: item.id,
+          task_id: item.task_id,
+          name: item.name,
+          url: item.url,
+          publicUrl: publicData.publicUrl,
+        };
+      });
+
+      setAttachments(mappedAttachments);
+      setAttachmentsLoading(false);
+    };
+
+    fetchAttachments();
+  }, [id]);
+
   const formatDeadline = (deadline: string | null) => {
     if (!deadline) return 'Без срока';
 
