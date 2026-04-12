@@ -97,9 +97,15 @@ export default function AuthPage() {
           return;
         }
 
-        if (data.user) {
+        if (data.session) {
           resetForm();
           navigate('/courses');
+          return;
+        }
+
+        if (data.user) {
+          resetForm();
+          setError('Проверьте почту и подтвердите регистрацию');
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Ошибка регистрации');
