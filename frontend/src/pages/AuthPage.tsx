@@ -98,9 +98,7 @@ export default function AuthPage() {
         }
 
         if (data.user) {
-          setEmail('');
-          setPassword('');
-          setConfirmPassword('');
+          resetForm();
           navigate('/courses');
         }
       } catch (err) {
@@ -136,9 +134,7 @@ export default function AuthPage() {
       }
 
       if (data.session) {
-        setEmail('');
-        setPassword('');
-        setConfirmPassword('');
+        resetForm();
         navigate('/courses');
       }
     } catch (err) {
@@ -234,7 +230,7 @@ export default function AuthPage() {
               onClick={() => {
                 setIsLogin(!isLogin);
                 setError('');
-                setConfirmPassword('');
+                resetForm();
               }}
           >
             {isLogin ? 'Создать' : 'Войти'}
