@@ -371,6 +371,7 @@ export default function TaskDetails() {
               borderColor: '#ffcdd2',
               opacity: isDeletingTask ? 0.6 : 1,
               cursor: isDeletingTask ? 'not-allowed' : 'pointer',
+              marginLeft: 'auto'
             }}
           >
             {isDeletingTask ? 'Удаление...' : 'Удалить задачу'}
