@@ -34,6 +34,7 @@ export default function TaskDetails() {
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [isSavingTask, setIsSavingTask] = useState(false);
+  const [editDeadline, setEditDeadline] = useState('');
 
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
   const [attachmentsLoading, setAttachmentsLoading] = useState(true);
@@ -71,6 +72,7 @@ export default function TaskDetails() {
         setTask(data);
         setEditTitle(data.title || '');
         setEditDescription(data.description || '');
+        setEditDeadline(toDatetimeLocalValue(data.deadline));
       }
 
       setLoading(false);
@@ -144,6 +146,16 @@ export default function TaskDetails() {
     });
   };
 
+  const toDatetimeLocalValue = (deadline: string | null) => {
+    if (!deadline) return '';
+
+    const date = new Date(deadline);
+    const offset = date.getTimezoneOffset();
+    const localDate = new Date(date.getTime() - offset * 60 * 1000);
+
+    return localDate.toISOString().slice(0, 16);
+  };
+
   const isUrgent = (deadline: string | null) => {
     if (!deadline) return false;
     const diff = new Date(deadline).getTime() - Date.now();
@@ -186,6 +198,7 @@ export default function TaskDetails() {
 
     setEditTitle(task.title || '');
     setEditDescription(task.description || '');
+    setEditDeadline(toDatetimeLocalValue(task.deadline));
     setErrorMessage('');
     setIsEditing(true);
   };
@@ -195,6 +208,7 @@ export default function TaskDetails() {
 
     setEditTitle(task.title || '');
     setEditDescription(task.description || '');
+    setEditDeadline(toDatetimeLocalValue(task.deadline));
     setErrorMessage('');
     setIsEditing(false);
   };
@@ -215,6 +229,7 @@ export default function TaskDetails() {
         .update({
           title: editTitle.trim(),
           description: editDescription.trim() || null,
+          deadline: editDeadline ? new Date(editDeadline).toISOString() : null,
         })
         .eq('id', task.id)
         .select()
@@ -229,6 +244,7 @@ export default function TaskDetails() {
     setTask(data);
     setEditTitle(data.title || '');
     setEditDescription(data.description || '');
+    setEditDeadline(toDatetimeLocalValue(data.deadline));
     setIsEditing(false);
     setIsSavingTask(false);
   };
@@ -470,25 +486,43 @@ export default function TaskDetails() {
         <div className="task-detail-header">
           <div>
             {isEditing ? (
-                <input
-                    type="text"
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    placeholder="Название задачи"
-                    disabled={isSavingTask}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      borderRadius: '10px',
-                      border: '1px solid var(--color-border)',
-                      background: 'var(--color-bg-secondary)',
-                      color: 'var(--color-text-main)',
-                      fontSize: '24px',
-                      fontWeight: 700,
-                      marginBottom: '10px',
-                      opacity: isSavingTask ? 0.7 : 1,
-                    }}
-                />
+                <>
+                  <input
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      placeholder="Название задачи"
+                      disabled={isSavingTask}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        border: '1px solid var(--color-border)',
+                        background: 'var(--color-bg-secondary)',
+                        color: 'var(--color-text-main)',
+                        fontSize: '24px',
+                        fontWeight: 700,
+                        marginBottom: '10px',
+                        opacity: isSavingTask ? 0.7 : 1,
+                      }}
+                  />
+
+                  <input
+                      type="datetime-local"
+                      value={editDeadline}
+                      onChange={(e) => setEditDeadline(e.target.value)}
+                      disabled={isSavingTask}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        border: '1px solid var(--color-border)',
+                        background: 'var(--color-bg-secondary)',
+                        color: 'var(--color-text-main)',
+                        marginBottom: '10px',
+                        opacity: isSavingTask ? 0.7 : 1,
+                      }}
+                  />
+                </>
             ) : (
                 <h2 style={{fontSize: '24px', marginBottom: '10px'}}>
                   {task.title}
