@@ -214,6 +214,76 @@ export default function TaskDetails() {
     setIsSavingTask(false);
   };
 
+  const addAttachment = async () => {
+    if (!task) {
+      setAttachmentsError('Не найдена задача.');
+      return;
+    }
+
+    if (!selectedAttachmentFile) {
+      setAttachmentsError('Выберите файл.');
+      return;
+    }
+
+    setAttachmentsError('');
+    setIsAddingAttachment(true);
+
+    const safeFileName = selectedAttachmentFile.name
+        .replace(/\s+/g, '_')
+        .replace(/[^a-zA-Z0-9._-]/g, '_');
+
+    const filePath = `tasks/${task.id}/${Date.now()}_${safeFileName}`;
+
+    const { error: uploadError } = await supabase.storage
+        .from('file_attachments')
+        .upload(filePath, selectedAttachmentFile);
+
+    if (uploadError) {
+      setAttachmentsError('Файл не загрузился: ' + uploadError.message);
+      setIsAddingAttachment(false);
+      return;
+    }
+
+    const { data: insertedAttachment, error: attachmentError } = await supabase
+        .from('task_attachments')
+        .insert([
+          {
+            id: crypto.randomUUID(),
+            task_id: task.id,
+            name: selectedAttachmentFile.name,
+            url: filePath,
+          },
+        ])
+        .select()
+        .single();
+
+    if (attachmentError) {
+      setAttachmentsError('Файл загружен, но запись не сохранилась: ' + attachmentError.message);
+      setIsAddingAttachment(false);
+      return;
+    }
+
+    const { data: publicData } = supabase.storage
+        .from('file_attachments')
+        .getPublicUrl(filePath);
+
+    setAttachments((prev) => [
+      {
+        ...insertedAttachment,
+        publicUrl: publicData.publicUrl,
+      },
+      ...prev,
+    ]);
+
+    setSelectedAttachmentFile(null);
+
+    if (attachmentFileInputRef.current) {
+      attachmentFileInputRef.current.value = '';
+    }
+
+    setIsAddingAttachment(false);
+  };
+
   const deleteTask = async () => {
     if (!task || isDeletingTask) return;
 
