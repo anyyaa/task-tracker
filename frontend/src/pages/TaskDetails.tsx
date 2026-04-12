@@ -327,14 +327,41 @@ export default function TaskDetails() {
         </div>
 
         <div className="action-buttons">
-          <button
-            className="btn-secondary"
-            disabled
-            style={{ opacity: 0.6, cursor: 'not-allowed' }}
-          >
-            Редактировать
-          </button>
+          {isEditing ? (
+              <>
+                <button
+                    className="btn-primary"
+                    onClick={saveTaskChanges}
+                    disabled={isSavingTask}
+                    style={{
+                      opacity: isSavingTask ? 0.7 : 1,
+                      cursor: isSavingTask ? 'not-allowed' : 'pointer',
+                    }}
+                >
+                  {isSavingTask ? 'Сохранение...' : 'Сохранить'}
+                </button>
 
+                <button
+                    className="btn-secondary"
+                    onClick={cancelEditing}
+                    disabled={isSavingTask}
+                    style={{
+                      opacity: isSavingTask ? 0.7 : 1,
+                      cursor: isSavingTask ? 'not-allowed' : 'pointer',
+                    }}
+                >
+                  Отменить
+                </button>
+              </>
+          ) : (
+              <button
+                  className="btn-secondary"
+                  onClick={startEditing}
+              >
+                Редактировать
+              </button>
+          )}
+          {!isEditing &&
           <button
             className="btn-secondary"
             onClick={deleteTask}
@@ -348,6 +375,7 @@ export default function TaskDetails() {
           >
             {isDeletingTask ? 'Удаление...' : 'Удалить задачу'}
           </button>
+          }
         </div>
       </div>
     </div>
