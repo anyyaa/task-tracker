@@ -150,10 +150,13 @@ export default function TaskDetails() {
     if (!deadline) return '';
 
     const date = new Date(deadline);
-    const offset = date.getTimezoneOffset();
-    const localDate = new Date(date.getTime() - offset * 60 * 1000);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
 
-    return localDate.toISOString().slice(0, 16);
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
   const isUrgent = (deadline: string | null) => {
@@ -229,7 +232,7 @@ export default function TaskDetails() {
         .update({
           title: editTitle.trim(),
           description: editDescription.trim() || null,
-          deadline: editDeadline ? new Date(editDeadline).toISOString() : null,
+          deadline: editDeadline || null,
         })
         .eq('id', task.id)
         .select()
