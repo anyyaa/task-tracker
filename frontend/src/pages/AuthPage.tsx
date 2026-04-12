@@ -162,6 +162,7 @@ export default function AuthPage() {
                       placeholder="Имя"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
+                      autoComplete="given-name"
                       required
                   />
                 </div>
@@ -173,6 +174,7 @@ export default function AuthPage() {
                       placeholder="Фамилия"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
+                      autoComplete="family-name"
                       required
                   />
                 </div>
@@ -185,6 +187,7 @@ export default function AuthPage() {
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
                 required
             />
           </div>
@@ -196,6 +199,7 @@ export default function AuthPage() {
                 placeholder="Пароль"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete={isLogin ? 'current-password' : 'new-password'}
                 required
             />
           </div>
@@ -209,6 +213,7 @@ export default function AuthPage() {
                   placeholder="Повторите пароль"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
                   required
               />
             </div>
