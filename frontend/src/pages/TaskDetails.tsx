@@ -284,6 +284,37 @@ export default function TaskDetails() {
     setIsAddingAttachment(false);
   };
 
+  const deleteAttachment = async (attachment: TaskAttachment) => {
+    const confirmed = window.confirm('Удалить вложение?');
+    if (!confirmed) return;
+
+    setAttachmentsError('');
+    setDeletingAttachmentId(attachment.id);
+
+    const { error: storageError } = await supabase.storage
+        .from('file_attachments')
+        .remove([attachment.url]);
+
+    if (storageError) {
+      setAttachmentsError('Не удалось удалить файл из хранилища: ' + storageError.message);
+      setDeletingAttachmentId(null);
+      return;
+    }
+
+    const { error } = await supabase
+        .from('task_attachments')
+        .delete()
+        .eq('id', attachment.id);
+
+    if (error) {
+      setAttachmentsError('Не удалось удалить вложение: ' + error.message);
+    } else {
+      setAttachments((prev) => prev.filter((item) => item.id !== attachment.id));
+    }
+
+    setDeletingAttachmentId(null);
+  };
+
   const deleteTask = async () => {
     if (!task || isDeletingTask) return;
 
