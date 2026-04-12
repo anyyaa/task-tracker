@@ -312,16 +312,51 @@ export default function TaskDetails() {
         )}
 
         <div className="task-description">
-          <p>
-            {task.description?.trim()
-              ? task.description
-              : '[Здесь будет подробное описание задачи.]'}
-          </p>
-          {!task.description?.trim() && (
-            <p>
-              [Например: Необходимо подготовить презентацию для защиты проекта. Текст для слайдов
-              должен быть написан до вечера пятницы, чтобы успеть собрать дизайн.]
-            </p>
+          {isEditing ? (
+              <>
+                <label
+                    style={{
+                      display: 'block',
+                      marginBottom: '8px',
+                      fontWeight: 600,
+                      color: 'var(--color-text-main)',
+                    }}
+                >
+                  Описание
+                </label>
+
+                <textarea
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    placeholder="Введите описание задачи"
+                    disabled={isSavingTask}
+                    rows={8}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--color-border)',
+                      background: 'var(--color-bg-secondary)',
+                      color: 'var(--color-text-main)',
+                      resize: 'vertical',
+                      opacity: isSavingTask ? 0.7 : 1,
+                    }}
+                />
+              </>
+          ) : (
+              <>
+                <p>
+                  {task.description?.trim()
+                      ? task.description
+                      : '[Здесь будет подробное описание задачи.]'}
+                </p>
+                {!task.description?.trim() && (
+                    <p>
+                      [Например: Необходимо подготовить презентацию для защиты проекта. Текст для слайдов
+                      должен быть написан до вечера пятницы, чтобы успеть собрать дизайн.]
+                    </p>
+                )}
+              </>
           )}
         </div>
 
