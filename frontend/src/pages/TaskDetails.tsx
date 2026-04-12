@@ -49,6 +49,8 @@ export default function TaskDetails() {
         setTask(null);
       } else {
         setTask(data);
+        setEditTitle(data.title || '');
+        setEditDescription(data.description || '');
       }
 
       setLoading(false);
@@ -95,6 +97,58 @@ export default function TaskDetails() {
     }
 
     setIsUpdatingStatus(false);
+  };
+
+  const startEditing = () => {
+    if (!task) return;
+
+    setEditTitle(task.title || '');
+    setEditDescription(task.description || '');
+    setErrorMessage('');
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    if (!task) return;
+
+    setEditTitle(task.title || '');
+    setEditDescription(task.description || '');
+    setErrorMessage('');
+    setIsEditing(false);
+  };
+
+  const saveTaskChanges = async () => {
+    if (!task || isSavingTask) return;
+
+    if (!editTitle.trim()) {
+      setErrorMessage('Введите название задачи.');
+      return;
+    }
+
+    setErrorMessage('');
+    setIsSavingTask(true);
+
+    const { data, error } = await supabase
+        .from('tasks')
+        .update({
+          title: editTitle.trim(),
+          description: editDescription.trim() || null,
+        })
+        .eq('id', task.id)
+        .select()
+        .single();
+
+    if (error) {
+      setErrorMessage('Ошибка сохранения задачи: ' + error.message);
+      setIsSavingTask(false);
+      return;
+    }
+
+    setTask(data);
+    setEditTitle(data.title || '');
+    setEditDescription(data.description || '');
+    setIsEditing(false);
+    setIsSavingTask(false);
   };
 
   const deleteTask = async () => {
