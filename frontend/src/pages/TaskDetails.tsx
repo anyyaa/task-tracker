@@ -21,6 +21,11 @@ export default function TaskDetails() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
 
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [isSavingTask, setIsSavingTask] = useState(false);
+
   useEffect(() => {
     const fetchTask = async () => {
       if (!id) {
