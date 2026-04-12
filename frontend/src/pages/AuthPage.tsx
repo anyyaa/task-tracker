@@ -105,8 +105,10 @@ export default function AuthPage() {
 
         if (data.user) {
           resetForm();
-          setError('Проверьте почту и подтвердите регистрацию');
+          setError('Если аккаунт новый, подтвердите регистрацию через почту. Если такой email уже зарегистрирован, просто войдите.');
+          return;
         }
+
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Ошибка регистрации');
       } finally {
