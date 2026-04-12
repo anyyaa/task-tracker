@@ -16,6 +16,7 @@ interface TaskAttachment {
   task_id: string;
   name: string;
   url: string;
+  is_external: boolean;
   publicUrl: string;
 }
 
@@ -37,9 +38,11 @@ export default function TaskDetails() {
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
   const [attachmentsLoading, setAttachmentsLoading] = useState(true);
   const [attachmentsError, setAttachmentsError] = useState('');
+  const [newAttachmentLink, setNewAttachmentLink] = useState('');
   const [selectedAttachmentFile, setSelectedAttachmentFile] = useState<File | null>(null);
   const [isAddingAttachment, setIsAddingAttachment] = useState(false);
   const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null);
+
 
   const attachmentFileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -102,16 +105,23 @@ export default function TaskDetails() {
       }
 
       const mappedAttachments: TaskAttachment[] = (data || []).map((item: any) => {
-        const { data: publicData } = supabase.storage
-            .from('file_attachments')
-            .getPublicUrl(item.url);
+        let publicUrl = item.url;
+
+        if (!item.is_external) {
+          const { data: publicData } = supabase.storage
+              .from('file_attachments')
+              .getPublicUrl(item.url);
+
+          publicUrl = publicData.publicUrl;
+        }
 
         return {
           id: item.id,
           task_id: item.task_id,
           name: item.name,
           url: item.url,
-          publicUrl: publicData.publicUrl,
+          is_external: item.is_external,
+          publicUrl,
         };
       });
 
@@ -138,6 +148,15 @@ export default function TaskDetails() {
     if (!deadline) return false;
     const diff = new Date(deadline).getTime() - Date.now();
     return diff > 0 && diff < 24 * 60 * 60 * 1000;
+  };
+
+  const isValidUrl = (value: string) => {
+    try {
+      new URL(value);
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const toggleTaskStatus = async () => {
@@ -220,85 +239,129 @@ export default function TaskDetails() {
       return;
     }
 
-    if (!selectedAttachmentFile) {
-      setAttachmentsError('Выберите файл.');
+    if (!selectedAttachmentFile && !newAttachmentLink.trim()) {
+      setAttachmentsError('Выберите файл или введите ссылку.');
+      return;
+    }
+
+    if (newAttachmentLink.trim() && !isValidUrl(newAttachmentLink.trim())) {
+      setAttachmentsError('Введите корректную ссылку. Она должна начинаться с http:// или https://');
       return;
     }
 
     setAttachmentsError('');
     setIsAddingAttachment(true);
 
-    const safeFileName = selectedAttachmentFile.name
-        .replace(/\s+/g, '_')
-        .replace(/[^a-zA-Z0-9._-]/g, '_');
+    if (selectedAttachmentFile) {
+      const safeFileName = selectedAttachmentFile.name
+          .replace(/\s+/g, '_')
+          .replace(/[^a-zA-Z0-9._-]/g, '_');
 
-    const filePath = `tasks/${task.id}/${Date.now()}_${safeFileName}`;
+      const filePath = `tasks/${task.id}/${Date.now()}_${safeFileName}`;
 
-    const { error: uploadError } = await supabase.storage
-        .from('file_attachments')
-        .upload(filePath, selectedAttachmentFile);
+      const { error: uploadError } = await supabase.storage
+          .from('file_attachments')
+          .upload(filePath, selectedAttachmentFile);
 
-    if (uploadError) {
-      setAttachmentsError('Файл не загрузился: ' + uploadError.message);
-      setIsAddingAttachment(false);
-      return;
+      if (uploadError) {
+        setAttachmentsError('Файл не загрузился: ' + uploadError.message);
+        setIsAddingAttachment(false);
+        return;
+      }
+
+      const { data: insertedAttachment, error: attachmentError } = await supabase
+          .from('task_attachments')
+          .insert([
+            {
+              id: crypto.randomUUID(),
+              task_id: task.id,
+              name: selectedAttachmentFile.name,
+              url: filePath,
+              is_external: false,
+            },
+          ])
+          .select()
+          .single();
+
+      if (attachmentError) {
+        setAttachmentsError('Файл загружен, но запись не сохранилась: ' + attachmentError.message);
+        setIsAddingAttachment(false);
+        return;
+      }
+
+      const { data: publicData } = supabase.storage
+          .from('file_attachments')
+          .getPublicUrl(filePath);
+
+      setAttachments((prev) => [
+        {
+          ...insertedAttachment,
+          publicUrl: publicData.publicUrl,
+        },
+        ...prev,
+      ]);
+
+      setSelectedAttachmentFile(null);
+
+      if (attachmentFileInputRef.current) {
+        attachmentFileInputRef.current.value = '';
+      }
     }
 
-    const { data: insertedAttachment, error: attachmentError } = await supabase
-        .from('task_attachments')
-        .insert([
-          {
-            id: crypto.randomUUID(),
-            task_id: task.id,
-            name: selectedAttachmentFile.name,
-            url: filePath,
-          },
-        ])
-        .select()
-        .single();
+    if (newAttachmentLink.trim()) {
+      const cleanLink = newAttachmentLink.trim();
 
-    if (attachmentError) {
-      setAttachmentsError('Файл загружен, но запись не сохранилась: ' + attachmentError.message);
-      setIsAddingAttachment(false);
-      return;
-    }
+      const { data: insertedLink, error: linkError } = await supabase
+          .from('task_attachments')
+          .insert([
+            {
+              id: crypto.randomUUID(),
+              task_id: task.id,
+              name: cleanLink,
+              url: cleanLink,
+              is_external: true,
+            },
+          ])
+          .select()
+          .single();
 
-    const { data: publicData } = supabase.storage
-        .from('file_attachments')
-        .getPublicUrl(filePath);
+      if (linkError) {
+        setAttachmentsError('Ссылка не сохранилась: ' + linkError.message);
+        setIsAddingAttachment(false);
+        return;
+      }
 
-    setAttachments((prev) => [
-      {
-        ...insertedAttachment,
-        publicUrl: publicData.publicUrl,
-      },
-      ...prev,
-    ]);
+      setAttachments((prev) => [
+        {
+          ...insertedLink,
+          publicUrl: cleanLink,
+        },
+        ...prev,
+      ]);
 
-    setSelectedAttachmentFile(null);
-
-    if (attachmentFileInputRef.current) {
-      attachmentFileInputRef.current.value = '';
+      setNewAttachmentLink('');
     }
 
     setIsAddingAttachment(false);
   };
 
   const deleteAttachment = async (attachment: TaskAttachment) => {
-    const confirmed = window.confirm('Удалить вложение?');
+    const confirmed = window.confirm('Удалить материал задачи?');
     if (!confirmed) return;
 
     setAttachmentsError('');
     setDeletingAttachmentId(attachment.id);
 
-    const { error: storageError } = await supabase.storage
-        .from('file_attachments')
-        .remove([attachment.url]);
+    if (!attachment.is_external) {
+      const { error: storageError } = await supabase.storage
+          .from('file_attachments')
+          .remove([attachment.url]);
 
-    if (storageError) {
-      setAttachmentsError('Не удалось удалить файл из хранилища: ' + storageError.message);
-      setDeletingAttachmentId(null);
-      return;
+      if (storageError) {
+        setAttachmentsError('Не удалось удалить файл из хранилища: ' + storageError.message);
+        setDeletingAttachmentId(null);
+        return;
+      }
     }
 
     const { error } = await supabase
@@ -307,14 +370,14 @@ export default function TaskDetails() {
         .eq('id', attachment.id);
 
     if (error) {
-      setAttachmentsError('Не удалось удалить вложение: ' + error.message);
+      setAttachmentsError('Не удалось удалить материал задачи: ' + error.message);
     } else {
       setAttachments((prev) => prev.filter((item) => item.id !== attachment.id));
     }
 
     setDeletingAttachmentId(null);
   };
-
+  
   const deleteTask = async () => {
     if (!task || isDeletingTask) return;
 
@@ -432,47 +495,47 @@ export default function TaskDetails() {
                 </h2>
             )}
 
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap'}}>
               <span className={`deadline-badge ${isUrgent(task.deadline) ? 'urgent' : ''}`}>
                 {task.deadline ? `Дедлайн: ${formatDeadline(task.deadline)}` : 'Без срока'}
               </span>
-              <span style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}>
+              <span style={{fontSize: '14px', color: 'var(--color-text-muted)'}}>
                 Статус: {task.is_completed ? 'Выполнена' : 'В работе'}
               </span>
             </div>
           </div>
 
           <button
-            className="btn-primary"
-            onClick={toggleTaskStatus}
-            disabled={isUpdatingStatus || isEditing || isSavingTask}
-            style={{
-              opacity: isUpdatingStatus || isEditing || isSavingTask ? 0.7 : 1,
-              cursor: isUpdatingStatus || isEditing || isSavingTask ? 'not-allowed' : 'pointer',
-            }}
+              className="btn-primary"
+              onClick={toggleTaskStatus}
+              disabled={isUpdatingStatus || isEditing || isSavingTask}
+              style={{
+                opacity: isUpdatingStatus || isEditing || isSavingTask ? 0.7 : 1,
+                cursor: isUpdatingStatus || isEditing || isSavingTask ? 'not-allowed' : 'pointer',
+              }}
           >
             {isUpdatingStatus
-              ? 'Сохраняем...'
-              : task.is_completed
-              ? 'Отметить невыполненной'
-              : 'Отметить выполненной'}
+                ? 'Сохраняем...'
+                : task.is_completed
+                    ? 'Отметить невыполненной'
+                    : 'Отметить выполненной'}
           </button>
         </div>
 
         {errorMessage && (
-          <div
-            style={{
-              marginTop: '16px',
-              marginBottom: '16px',
-              padding: '12px 16px',
-              borderRadius: '10px',
-              background: 'rgba(255, 80, 80, 0.12)',
-              border: '1px solid rgba(255, 80, 80, 0.35)',
-              color: '#ff6b6b',
-            }}
-          >
-            {errorMessage}
-          </div>
+            <div
+                style={{
+                  marginTop: '16px',
+                  marginBottom: '16px',
+                  padding: '12px 16px',
+                  borderRadius: '10px',
+                  background: 'rgba(255, 80, 80, 0.12)',
+                  border: '1px solid rgba(255, 80, 80, 0.35)',
+                  color: '#ff6b6b',
+                }}
+            >
+              {errorMessage}
+            </div>
         )}
 
         <div className="task-description">
@@ -510,40 +573,142 @@ export default function TaskDetails() {
           ) : (
               <>
                 <p>
-                  {task.description?.trim()
-                      ? task.description
-                      : '[Здесь будет подробное описание задачи.]'}
+                  {task.description}
                 </p>
-                {!task.description?.trim() && (
-                    <p>
-                      [Например: Необходимо подготовить презентацию для защиты проекта. Текст для слайдов
-                      должен быть написан до вечера пятницы, чтобы успеть собрать дизайн.]
-                    </p>
-                )}
               </>
           )}
         </div>
 
         <div>
-          <h3 className="section-title">Вложения и ссылки</h3>
-          <div className="attachment-list">
-            <a href="#" className="attachment-item" onClick={(e) => e.preventDefault()}>
-              <span style={{ fontSize: '20px' }}>📄</span>
-              <span>[Здесь будет прикрепленный файл: Методичка.pdf]</span>
-            </a>
+          <h3 className="section-title">Материалы задачи</h3>
 
-            <a href="#" className="attachment-item" onClick={(e) => e.preventDefault()}>
-              <span style={{ fontSize: '20px' }}>🔗</span>
-              <span>[Здесь будет ссылка: Google Документ с черновиком]</span>
-            </a>
+          {attachmentsError && (
+              <div
+                  style={{
+                    marginTop: '16px',
+                    marginBottom: '16px',
+                    padding: '12px 16px',
+                    borderRadius: '10px',
+                    background: 'rgba(255, 80, 80, 0.12)',
+                    border: '1px solid rgba(255, 80, 80, 0.35)',
+                    color: '#ff6b6b',
+                  }}
+              >
+                {attachmentsError}
+              </div>
+          )}
 
-            <button
-              className="btn-secondary"
-              style={{ width: 'fit-content', marginTop: '10px', opacity: 0.6, cursor: 'not-allowed' }}
-              disabled
-            >
-              + Прикрепить файл/ссылку
-            </button>
+          <div className="attachment-list" style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
+            <input
+                type="text"
+                value={newAttachmentLink}
+                onChange={(e) => setNewAttachmentLink(e.target.value)}
+                placeholder="Добавить ссылку на материал задачи"
+                disabled={isAddingAttachment}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--color-border)',
+                  background: 'var(--color-bg-secondary)',
+                  color: 'var(--color-text)',
+                  opacity: isAddingAttachment ? 0.7 : 1,
+                }}
+            />
+
+            <input
+                ref={attachmentFileInputRef}
+                type="file"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  setSelectedAttachmentFile(file);
+                }}
+                disabled={isAddingAttachment}
+            />
+
+            {selectedAttachmentFile && (
+                <div style={{color: 'var(--color-text-muted)', fontSize: '14px'}}>
+                  Выбран файл: {selectedAttachmentFile.name}
+                </div>
+            )}
+
+            <div>
+              <button
+                  className="btn-secondary"
+                  onClick={addAttachment}
+                  disabled={isAddingAttachment}
+                  style={{
+                    width: 'fit-content',
+                    marginTop: '10px',
+                    opacity: isAddingAttachment ? 0.6 : 1,
+                    cursor: isAddingAttachment ? 'not-allowed' : 'pointer',
+                  }}
+              >
+                {isAddingAttachment ? 'Добавление...' : 'Добавить материал'}
+              </button>
+            </div>
+
+            {attachmentsLoading ? (
+                <p style={{color: 'var(--color-text-muted)'}}>Загрузка материалов задачи...</p>
+            ) : attachments.length === 0 ? (
+                <p style={{color: 'var(--color-text-muted)'}}>
+                  У этой задачи пока нет прикреплённых материалов.
+                </p>
+            ) : (
+                attachments.map((attachment) => {
+                  const isDeletingThisAttachment = deletingAttachmentId === attachment.id;
+
+                  return (
+                      <div
+                          key={attachment.id}
+                          className="attachment-item"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '12px',
+                          }}
+                      >
+                        <a
+                            href={attachment.publicUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                              textDecoration: 'none',
+                              color: 'var(--color-text)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '10px',
+                              flexGrow: 1,
+                              opacity: isDeletingThisAttachment ? 0.5 : 1,
+                              pointerEvents: isDeletingThisAttachment ? 'none' : 'auto',
+                            }}
+                        >
+              <span style={{fontSize: '20px'}}>
+                {attachment.is_external ? '🔗' : '📎'}
+              </span>
+                          <span>{attachment.name}</span>
+                        </a>
+
+                        <button
+                            onClick={() => deleteAttachment(attachment)}
+                            disabled={isDeletingThisAttachment}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#d32f2f',
+                              cursor: isDeletingThisAttachment ? 'not-allowed' : 'pointer',
+                              fontSize: '16px',
+                              padding: '4px 8px',
+                              opacity: isDeletingThisAttachment ? 0.5 : 1,
+                            }}
+                            title="Удалить материал"
+                        >
+                          {isDeletingThisAttachment ? '...' : '🗑️'}
+                        </button>
+                      </div>
+                  );
+                })
+            )}
           </div>
         </div>
 
@@ -583,16 +748,16 @@ export default function TaskDetails() {
               </button>
           )}
           <button
-            className="btn-secondary"
-            onClick={deleteTask}
-            disabled={isDeletingTask || isEditing || isSavingTask}
-            style={{
-              color: '#d32f2f',
-              borderColor: '#ffcdd2',
-              opacity: isDeletingTask || isEditing || isSavingTask ? 0.6 : 1,
-              cursor: isDeletingTask || isEditing || isSavingTask ? 'not-allowed' : 'pointer',
-              marginLeft: 'auto'
-            }}
+              className="btn-secondary"
+              onClick={deleteTask}
+              disabled={isDeletingTask || isEditing || isSavingTask}
+              style={{
+                color: '#d32f2f',
+                borderColor: '#ffcdd2',
+                opacity: isDeletingTask || isEditing || isSavingTask ? 0.6 : 1,
+                cursor: isDeletingTask || isEditing || isSavingTask ? 'not-allowed' : 'pointer',
+                marginLeft: 'auto'
+              }}
           >
             {isDeletingTask ? 'Удаление...' : 'Удалить задачу'}
           </button>
