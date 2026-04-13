@@ -658,15 +658,27 @@ export default function TaskDetails() {
                 }}
             />
 
-            <input
-                ref={attachmentFileInputRef}
-                type="file"
-                onChange={(e) => {
-                  const file = e.target.files?.[0] || null;
-                  setSelectedAttachmentFile(file);
-                }}
-                disabled={isAddingAttachment}
-            />
+            <div className="file-upload-wrapper">
+              <label className="file-upload-button">
+                <span className="icon">📎</span>
+                {selectedAttachmentFile ? 'Файл выбран' : 'Выбрать файл'}
+                <input
+                  ref={attachmentFileInputRef}
+                  type="file"
+                  className="file-upload-input"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setSelectedAttachmentFile(file);
+                  }}
+                  disabled={isAddingAttachment}
+                />
+              </label>
+              {selectedAttachmentFile && (
+                <span className="file-selected-name" title={selectedAttachmentFile.name}>
+                  {selectedAttachmentFile.name}
+                </span>
+              )}
+            </div>
 
             {selectedAttachmentFile && (
                 <div style={{color: 'var(--color-text-muted)', fontSize: '14px'}}>
@@ -676,7 +688,7 @@ export default function TaskDetails() {
 
             <div>
               <button
-                  className="btn-secondary"
+                  className="btn-primary"
                   onClick={addAttachment}
                   disabled={isAddingAttachment}
                   style={{
