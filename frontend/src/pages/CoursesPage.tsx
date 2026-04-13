@@ -7,6 +7,7 @@ interface Course {
   name: string;
   description: string | null;
   user_id: string;
+  is_complited: boolean;
 }
 
 export default function CoursesPage() {
@@ -231,6 +232,23 @@ export default function CoursesPage() {
     setIsCreatingCourse(false);
   };
 
+  const toggleCourseCompletion = async (courseId: string, currentStatus: boolean) => {
+    const { error } = await supabase
+      .from('courses')
+      .update({ is_complited: !currentStatus })
+      .eq('id', courseId);
+
+    if (error) {
+      setErrorMessage('Ошибка обновления курса: ' + error.message);
+    } else {
+      setCourses(courses.map(course =>
+        course.id === courseId 
+          ? { ...course, is_complited: !currentStatus } 
+          : course
+      ));
+    }
+  };
+
   if (loading) {
     return (
       <div className="container">
@@ -337,15 +355,27 @@ export default function CoursesPage() {
           />
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <input
-              ref={fileInputRef}
-              type="file"
-              onChange={(e) => {
-                const file = e.target.files?.[0] || null;
-                setSelectedFile(file);
-              }}
-              disabled={isCreatingCourse}
-            />
+            <div className="file-upload-wrapper">
+              <label className="file-upload-button">
+                <span className="icon">📎</span>
+                {selectedFile ? 'Файл выбран' : 'Прикрепить файл'}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="file-upload-input"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setSelectedFile(file);
+                  }}
+                  disabled={isCreatingCourse}
+                />
+              </label>
+              {selectedFile && (
+                <span className="file-selected-name" title={selectedFile.name}>
+                  {selectedFile.name}
+                </span>
+              )}
+            </div>
 
             {selectedFile && (
               <div style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>
@@ -393,36 +423,71 @@ export default function CoursesPage() {
           </div>
         ) : (
           courses.map((course) => (
-            <Link key={course.id} to={`/courses/${course.id}`} className="course-card">
-              <div style={{ flexGrow: 1 }}>
-                <h3 style={{ marginBottom: '10px', fontSize: '20px' }}>
-                  {course.name}
-                </h3>
-
-                <p
-                  style={{
-                    color: 'var(--color-text-muted)',
-                    fontSize: '14px',
-                    lineHeight: '1.5',
-                  }}
-                >
-                  {course.description?.trim()
-                    ? course.description
-                    : 'Описание курса пока не добавлено.'}
-                </p>
-              </div>
-
-              <div
+            <div key={course.id} className="course-card-wrapper" style={{ position: 'relative' }}>
+              <Link 
+                to={`/courses/${course.id}`} 
+                className="course-card"
                 style={{
-                  marginTop: '20px',
-                  fontSize: '13px',
-                  color: 'var(--color-primary)',
-                  fontWeight: '500',
+                  opacity: course.is_complited ? 0.7 : 1,
+                  background: course.is_complited ? 'var(--color-bg-secondary)' : 'var(--color-bg-card)',
                 }}
               >
-                Перейти к задачам &rarr;
-              </div>
-            </Link>
+                <div style={{ flexGrow: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                    <h3 style={{ margin: 0, fontSize: '20px' }}>
+                      {course.name}
+                    </h3>
+                    {course.is_complited && (
+                      <span style={{ color: '#4caf50', fontSize: '16px' }}>✅</span>
+                    )}
+                  </div>
+                  <p
+                    style={{
+                      color: 'var(--color-text-muted)',
+                      fontSize: '14px',
+                      lineHeight: '1.5',
+                    }}
+                  >
+                    {course.description?.trim() || 'Описание курса пока не добавлено.'}
+                  </p>
+                </div>
+                <div
+                  style={{
+                    marginTop: '20px',
+                    fontSize: '13px',
+                    color: 'var(--color-primary)',
+                    fontWeight: '500',
+                  }}
+                >
+                  Перейти к задачам &rarr;
+                </div>
+              </Link>
+              
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleCourseCompletion(course.id, course.is_complited);
+                }}
+                style={{
+                  position: 'absolute',
+                  top: '12px',
+                  right: '12px',
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '18px',
+                  cursor: 'pointer',
+                  padding: '6px 10px',
+                  borderRadius: '8px',
+                  backgroundColor: course.is_complited ? 'rgba(76, 175, 80, 0.15)' : 'rgba(158, 158, 158, 0.1)',
+                  color: course.is_complited ? '#4caf50' : 'var(--color-text-muted)',
+                  transition: 'all 0.2s ease',
+                }}
+                title={course.is_complited ? 'Отметить как активный' : 'Завершить курс'}
+              >
+                {course.is_complited ? '✅' : '✔️'}
+              </button>
+            </div>
           ))
         )}
       </div>
