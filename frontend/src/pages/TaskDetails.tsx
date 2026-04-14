@@ -224,15 +224,39 @@ export default function TaskDetails() {
       return;
     }
 
+    const normalizedTitle = editTitle.trim();
+    const normalizedDeadline = editDeadline || null;
+
     setErrorMessage('');
     setIsSavingTask(true);
+
+    const { data: existingTask, error: duplicateCheckError } = await supabase
+        .from('tasks')
+        .select('id')
+        .eq('course_id', task.course_id)
+        .eq('title', normalizedTitle)
+        .eq('deadline', normalizedDeadline)
+        .neq('id', task.id)
+        .maybeSingle();
+
+    if (duplicateCheckError) {
+      setErrorMessage('Ошибка проверки дубликата задачи: ' + duplicateCheckError.message);
+      setIsSavingTask(false);
+      return;
+    }
+
+    if (existingTask) {
+      setErrorMessage('Задача с таким названием и дедлайном уже существует.');
+      setIsSavingTask(false);
+      return;
+    }
 
     const { data, error } = await supabase
         .from('tasks')
         .update({
-          title: editTitle.trim(),
+          title: normalizedTitle,
           description: editDescription.trim() || null,
-          deadline: editDeadline || null,
+          deadline: normalizedDeadline,
         })
         .eq('id', task.id)
         .select()
