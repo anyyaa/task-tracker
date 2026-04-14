@@ -183,19 +183,41 @@ export default function CourseDetails() {
     setErrorMessage('');
     setIsAddingTask(true);
 
-    const { data, error } = await supabase
-      .from('tasks')
-      .insert([
-        {
-          title: newTaskTitle.trim(),
-          course_id: id,
-          is_completed: false,
-          deadline: newTaskDeadline || null,
+    const normalizedTitle = newTaskTitle.trim();
+    const normalizedDeadline = newTaskDeadline || null;
 
-        },
-      ])
-      .select()
-      .single();
+    const { data: existingTask, error: duplicateCheckError } = await supabase
+        .from('tasks')
+        .select('id')
+        .eq('course_id', id)
+        .eq('title', normalizedTitle)
+        .eq('deadline', normalizedDeadline)
+        .maybeSingle();
+
+    if (duplicateCheckError) {
+      setErrorMessage('Ошибка проверки дубликата задачи: ' + duplicateCheckError.message);
+      setIsAddingTask(false);
+      return;
+    }
+
+    if (existingTask) {
+      setErrorMessage('Задача с таким названием и дедлайном уже существует.');
+      setIsAddingTask(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+        .from('tasks')
+        .insert([
+          {
+            title: normalizedTitle,
+            course_id: id,
+            is_completed: false,
+            deadline: normalizedDeadline,
+          },
+        ])
+        .select()
+        .single();
 
     if (error) {
       setErrorMessage('Ошибка создания задачи: ' + error.message);
