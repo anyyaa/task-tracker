@@ -106,17 +106,38 @@ export default function CoursesPage() {
       return;
     }
 
+    const normalizedCourseName = newCourseName.trim();
+
+    const { data: existingCourse, error: duplicateCheckError } = await supabase
+        .from('courses')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('name', normalizedCourseName)
+        .maybeSingle();
+
+    if (duplicateCheckError) {
+      setErrorMessage('Ошибка проверки дубликата курса: ' + duplicateCheckError.message);
+      setIsCreatingCourse(false);
+      return;
+    }
+
+    if (existingCourse) {
+      setErrorMessage('Курс с таким названием уже существует.');
+      setIsCreatingCourse(false);
+      return;
+    }
+
     const { data: createdCourse, error: courseError } = await supabase
-      .from('courses')
-      .insert([
-        {
-          name: newCourseName.trim(),
-          description: newCourseDescription.trim() || null,
-          user_id: user.id,
-        },
-      ])
-      .select()
-      .single();
+        .from('courses')
+        .insert([
+          {
+            name: normalizedCourseName,
+            description: newCourseDescription.trim() || null,
+            user_id: user.id,
+          },
+        ])
+        .select()
+        .single();
 
     if (courseError) {
       setErrorMessage('Ошибка создания курса: ' + courseError.message);
@@ -133,14 +154,14 @@ export default function CoursesPage() {
     if (selectedFile) {
       const originalFileName = selectedFile.name;
       const safeFileName = originalFileName
-        .replace(/\s+/g, '_')
-        .replace(/[^a-zA-Z0-9._-]/g, '_');
+          .replace(/\s+/g, '_')
+          .replace(/[^a-zA-Z0-9._-]/g, '_');
 
       const filePath = `courses/${createdCourse.id}/${Date.now()}_${safeFileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('file_attachments')
-        .upload(filePath, selectedFile);
+          .from('file_attachments')
+          .upload(filePath, selectedFile);
 
       if (uploadError) {
         setCourses((prevCourses) => [createdCourse, ...prevCourses]);
@@ -160,21 +181,21 @@ export default function CoursesPage() {
       }
 
       const { error: attachmentError } = await supabase
-        .from('course_attachments')
-        .insert([
-          {
-            id: crypto.randomUUID(),
-            course_id: createdCourse.id,
-            name: selectedFile.name,
-            url: filePath,
-            is_external: false,
-          },
-        ]);
+          .from('course_attachments')
+          .insert([
+            {
+              id: crypto.randomUUID(),
+              course_id: createdCourse.id,
+              name: selectedFile.name,
+              url: filePath,
+              is_external: false,
+            },
+          ]);
 
       if (attachmentError) {
         setCourses((prevCourses) => [createdCourse, ...prevCourses]);
         setErrorMessage(
-          'Курс создан, файл загружен, но запись о вложении не сохранилась: ' +
+            'Курс создан, файл загружен, но запись о вложении не сохранилась: ' +
             attachmentError.message
         );
         setNewCourseName('');
@@ -196,22 +217,20 @@ export default function CoursesPage() {
       const cleanLink = newCourseLink.trim();
 
       const { error: linkError } = await supabase
-        .from('course_attachments')
-        .insert([
-          {
-            id: crypto.randomUUID(),
-            course_id: createdCourse.id,
-            name: cleanLink,
-            url: cleanLink,
-            is_external: true,
-          },
-        ]);
+          .from('course_attachments')
+          .insert([
+            {
+              id: crypto.randomUUID(),
+              course_id: createdCourse.id,
+              name: cleanLink,
+              url: cleanLink,
+              is_external: true,
+            },
+          ]);
 
       if (linkError) {
         setCourses((prevCourses) => [createdCourse, ...prevCourses]);
-        setErrorMessage(
-          'Курс создан, но ссылка не сохранилась: ' + linkError.message
-        );
+        setErrorMessage('Курс создан, но ссылка не сохранилась: ' + linkError.message);
         setNewCourseName('');
         setNewCourseDescription('');
         setNewCourseLink('');
