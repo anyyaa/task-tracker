@@ -79,7 +79,9 @@ export default function CourseDetails() {
         setTasks([]);
       } else {
         setTasks(data || []);
-        log("info", "tasks_loaded", "Загружены задачи", count: data?.length || 0,});
+        log("info", "tasks_loaded", "Загружены задачи", {
+        count: data?.length || 0,
+          });
       }
 
       setLoading(false);
