@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import {isValidUrl} from "../utils/isValidUrl.ts";
 
 interface Task {
   id: string;
@@ -158,15 +159,6 @@ export default function CourseDetails() {
     if (!deadline) return false;
     const diff = new Date(deadline).getTime() - Date.now();
     return diff > 0 && diff < 24 * 60 * 60 * 1000;
-  };
-
-  const isValidUrl = (value: string) => {
-    try {
-      new URL(value);
-      return true;
-    } catch {
-      return false;
-    }
   };
 
   const addTask = async () => {
