@@ -1,10 +1,12 @@
 export default async function handler(req, res) {
+  console.log("LOG API HIT");
   if (req.method !== "POST") {
     return res.status(405).end();
   }
 
   const { level, event, message, meta } = req.body;
-
+  console.log("BODY:", req.body);
+  
   const LOKI_URL = process.env.LOKI_URL;
   const USER = process.env.LOKI_USER;
   const PASS = process.env.LOKI_PASS;
