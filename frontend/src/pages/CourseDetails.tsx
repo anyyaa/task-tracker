@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { log } from "../lib/logger";
+
 
 interface Task {
   id: string;
@@ -49,6 +51,7 @@ export default function CourseDetails() {
 
   useEffect(() => {
     const fetchTasks = async () => {
+      log("info", "page_open", "Открыта страница курса", { courseId: id });
       setLoading(true);
       setErrorMessage('');
 
