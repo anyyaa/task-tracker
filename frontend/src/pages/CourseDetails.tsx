@@ -51,7 +51,7 @@ export default function CourseDetails() {
 
   useEffect(() => {
     const fetchTasks = async () => {
-      log("info", "page_open", "Открыта страница курса", { courseId: id });
+      log("page_open", "Открыта страница курса", { courseId: id });
       setLoading(true);
       setErrorMessage('');
 
