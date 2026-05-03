@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { log } from "../utils/logger";
 
 interface Task {
   id: string;
@@ -48,6 +49,7 @@ export default function CourseDetails() {
   const attachmentFileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
+    log("info", "page_open", "Открыта страница курса", { courseId: id });
     const fetchTasks = async () => {
       setLoading(true);
       setErrorMessage('');
@@ -71,11 +73,13 @@ export default function CourseDetails() {
         .order('deadline', { ascending: true, nullsFirst: false });
 
       if (error) {
+        log("error", "tasks_load_failed", error.message, { courseId: id });
         console.error('Ошибка загрузки задач:', error);
         setErrorMessage('Не удалось загрузить задачи. Попробуйте обновить страницу.');
         setTasks([]);
       } else {
         setTasks(data || []);
+        log("info", "tasks_loaded", "Загружены задачи", count: data?.length || 0,});
       }
 
       setLoading(false);
