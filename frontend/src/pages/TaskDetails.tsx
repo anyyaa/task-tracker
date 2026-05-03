@@ -2,6 +2,7 @@ import {useEffect, useRef, useState} from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import {isValidUrl} from "../utils/isValidUrl.ts";
+import {isUrgentDeadline} from "../utils/deadlines.ts";
 
 interface Task {
   id: string;
@@ -158,12 +159,6 @@ export default function TaskDetails() {
     const minutes = String(date.getMinutes()).padStart(2, '0');
 
     return `${year}-${month}-${day}T${hours}:${minutes}`;
-  };
-
-  const isUrgent = (deadline: string | null) => {
-    if (!deadline) return false;
-    const diff = new Date(deadline).getTime() - Date.now();
-    return diff > 0 && diff < 24 * 60 * 60 * 1000;
   };
 
   const toggleTaskStatus = async () => {
@@ -549,7 +544,7 @@ export default function TaskDetails() {
             )}
 
             <div style={{display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap'}}>
-              <span className={`deadline-badge ${isUrgent(task.deadline) ? 'urgent' : ''}`}>
+              <span className={`deadline-badge ${isUrgentDeadline(task.deadline) ? 'urgent' : ''}`}>
                 {task.deadline ? `Дедлайн: ${formatDeadline(task.deadline)}` : 'Без срока'}
               </span>
               <span style={{fontSize: '14px', color: 'var(--color-text-muted)'}}>
