@@ -28,25 +28,47 @@ function Navigation() {
     };
 
     useEffect(() => {
-        const loadUser = async () => {
-            const { data, error } = await supabase.auth.getUser();
+        if (location.pathname === '/') {
+            setFullName('');
+            return;
+        }
 
-            if (error) {
-                console.error('Ошибка получения пользователя:', error.message);
-                return;
+        let isMounted = true;
+
+        const loadUserName = async () => {
+            try {
+                const { data, error } = await supabase.auth.getSession();
+
+                if (!isMounted) return;
+
+                if (error) {
+                    console.error('Ошибка получения сессии:', error.message);
+                    setFullName('');
+                    return;
+                }
+
+                const user = data.session?.user;
+
+                const firstName = user?.user_metadata?.first_name ?? '';
+                const lastName = user?.user_metadata?.last_name ?? '';
+
+                setFullName(`${firstName} ${lastName}`.trim());
+            } catch (error) {
+                if (!isMounted) return;
+
+                console.error('Ошибка загрузки имени пользователя:', error);
+                setFullName('');
             }
-
-            const firstName = data.user?.user_metadata?.first_name ?? '';
-            const lastName = data.user?.user_metadata?.last_name ?? '';
-
-            const name = `${firstName} ${lastName}`.trim();
-            setFullName(name);
-            console.log(name);
         };
 
-        loadUser();
-    }, []);
-  // Если мы на странице авторизации, шапку не показываем
+        loadUserName();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [location.pathname]);
+
+    // Если мы на странице авторизации, шапку не показываем
   if (location.pathname === '/') return null;
 
   return (

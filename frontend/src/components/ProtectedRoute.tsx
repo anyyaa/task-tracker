@@ -12,21 +12,40 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     const [hasSession, setHasSession] = useState(false);
 
     useEffect(() => {
+        let isMounted = true;
+
         const checkSession = async () => {
-            const { data, error } = await supabase.auth.getSession();
+            try {
+                const { data, error } = await supabase.auth.getSession();
 
-            if (error) {
+                if (!isMounted) return;
+
+                if (error) {
+                    console.error('Auth check error:', error.message);
+                    setHasSession(false);
+                    return;
+                }
+
+                setHasSession(Boolean(data.session));
+            } catch (error) {
+                if (!isMounted) return;
+
+                console.error('Auth check failed:', error);
                 setHasSession(false);
-                setLoading(false);
-                return;
+            } finally {
+                if (isMounted) {
+                    setLoading(false);
+                }
             }
-
-            setHasSession(Boolean(data.session));
-            setLoading(false);
         };
 
         checkSession();
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
+
 
     if (loading) {
         return <div>Проверка авторизации...</div>;

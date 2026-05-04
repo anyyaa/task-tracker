@@ -18,21 +18,36 @@ export default function AuthPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    let isMounted = true;
+
     const checkSession = async () => {
-      const { data, error } = await supabase.auth.getSession();
+      try {
+        const { data, error } = await supabase.auth.getSession();
 
-      if (error) {
-        setError(error.message);
-        return;
-      }
+        if (!isMounted) return;
 
-      if (data.session) {
-        navigate('/courses');
+        if (error) {
+          setError(error.message);
+          return;
+        }
+
+        if (data.session) {
+          navigate('/courses');
+        }
+      } catch (error) {
+        if (!isMounted) return;
+
+        console.error('Session check failed:', error);
       }
     };
 
     checkSession();
+
+    return () => {
+      isMounted = false;
+    };
   }, [navigate]);
+
 
   const resetForm = () => {
     setFirstName('');
