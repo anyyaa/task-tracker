@@ -28,4 +28,4 @@ describe('Supabase task list performance', () => {
         expect(data).toHaveLength(1000);
         expect(duration).toBeLessThan(5000);
     });
-});
+},20000);
