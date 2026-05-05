@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import {isValidUrl} from "../utils/isValidUrl.ts";
+import FeedbackMetricsWidget from "../components/FeedbackMetricsWidget.tsx";
 
 interface Course {
   id: string;
@@ -70,15 +72,6 @@ export default function CoursesPage() {
 
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
-    }
-  };
-
-  const isValidUrl = (value: string) => {
-    try {
-      new URL(value);
-      return true;
-    } catch {
-      return false;
     }
   };
 
@@ -510,6 +503,7 @@ export default function CoursesPage() {
           ))
         )}
       </div>
+      <FeedbackMetricsWidget />
     </div>
   );
 }

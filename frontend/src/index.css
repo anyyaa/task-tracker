@@ -503,3 +503,67 @@ body {
   background: rgba(99, 102, 241, 0.15) !important;
   transform: scale(1.05);
 }
+
+.feedback-widget {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 1000;
+}
+
+.feedback-toggle {
+  border: none;
+  border-radius: 999px;
+  padding: 12px 18px;
+  background: var(--color-primary);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.feedback-panel {
+  width: 320px;
+  margin-bottom: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.feedback-panel h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.feedback-panel label {
+  font-size: 14px;
+  color: var(--color-text-main);
+}
+
+.feedback-panel textarea {
+  min-height: 80px;
+  resize: vertical;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-main);
+}
+
+.feedback-panel input[type="range"] {
+  accent-color: var(--color-primary);
+}
+
+.feedback-message {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #22c55e;
+  font-size: 14px;
+}
