@@ -33,7 +33,6 @@ export default function FeedbackMetricsWidget() {
                     csat_score: csat,
                     ces_score: ces,
                     comment: comment.trim() || null,
-                    page: window.location.pathname,
                 },
             ]);
 
@@ -97,8 +96,8 @@ export default function FeedbackMetricsWidget() {
                         onChange={(e) => setComment(e.target.value)}
                     />
 
-                    <button className="btn-primary" onClick={submitFeedback}>
-                        Отправить
+                    <button className="btn-primary" onClick={submitFeedback} disabled={isSubmitting}>
+                        {isSubmitting ? 'Отправка...' : 'Отправить'}
                     </button>
 
                     {message && (
@@ -109,8 +108,12 @@ export default function FeedbackMetricsWidget() {
                 </div>
             )}
 
-            <button className="btn-primary" onClick={submitFeedback} disabled={isSubmitting}>
-                {isSubmitting ? 'Отправка...' : 'Отправить'}
+            <button
+                className="feedback-toggle"
+                type="button"
+                onClick={() => setIsOpen((value) => !value)}
+            >
+                {isOpen ? 'Закрыть' : 'Оценить'}
             </button>
         </div>
     );
