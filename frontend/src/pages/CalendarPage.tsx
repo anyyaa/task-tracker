@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { isUrgentDeadline } from '../utils/deadlines';
 
 const weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
@@ -196,9 +197,16 @@ export default function CalendarPage() {
                             <Link
                                 key={task.id}
                                 to={`/tasks/${task.id}`}
-                                className={`calendar-event-pill ${task.is_completed ? 'done' : ''}`}
+                                className={[
+                                  'calendar-event-pill',
+                                  task.is_completed ? 'done' : '',
+                                  !task.is_completed && isUrgentDeadline(task.deadline) ? 'urgent' : '',
+                                ].join(' ')}
                                 title={task.title}
                             >
+                              {!task.is_completed && isUrgentDeadline(task.deadline) && (
+                                  <span className="calendar-event-alert">!</span>
+                              )}
                               {task.title}
                             </Link>
                         ))}
