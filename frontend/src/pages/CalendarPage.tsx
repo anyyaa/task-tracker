@@ -1,93 +1,230 @@
 import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { supabase } from '../lib/supabase';
+
+const weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+type CalendarTask = {
+  id: string;
+  title: string;
+  deadline: string;
+  is_completed: boolean;
+  course_id: string;
+};
 
 export default function CalendarPage() {
-  // Дни недели
-  const weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-  
-  // Фейковая генерация 30 дней (Апрель)
-  // Первое число апреля 2026 выпадает на среду, поэтому делаем 2 пустых слота в начале
-  const emptyDays = [null, null]; 
-  const daysInMonth = Array.from({ length: 30 }, (_, i) => i + 1);
+  const [currentDate, setCurrentDate] = useState(new Date());
+
+  const [tasks, setTasks] = useState<CalendarTask[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+
+  useEffect(() => {
+    const loadTasks = async () => {
+      setLoading(true);
+      setError('');
+
+      try {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          throw sessionError;
+        }
+
+        const userId = sessionData.session?.user.id;
+
+        if (!userId) {
+          setTasks([]);
+          return;
+        }
+
+        const { data: courses, error: coursesError } = await supabase
+            .from('courses')
+            .select('id')
+            .eq('user_id', userId);
+
+        if (coursesError) {
+          throw coursesError;
+        }
+
+        const courseIds = (courses ?? []).map((course) => course.id);
+
+        if (courseIds.length === 0) {
+          setTasks([]);
+          return;
+        }
+
+        const { data, error } = await supabase
+            .from('tasks')
+            .select('id, title, deadline, is_completed, course_id')
+            .in('course_id', courseIds)
+            .not('deadline', 'is', null)
+            .order('deadline', { ascending: true });
+
+        if (error) {
+          throw error;
+        }
+
+        setTasks((data ?? []) as CalendarTask[]);
+      } catch (error) {
+        console.error('Ошибка загрузки задач для календаря:', error);
+        setError('Не удалось загрузить задачи');
+        setTasks([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTasks();
+  }, []);
+
+
+  const calendarDays = useMemo(() => {
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+
+    const firstWeekDay = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+    const daysInMonth = lastDay.getDate();
+
+    return [
+      ...Array.from({ length: firstWeekDay }, () => null),
+      ...Array.from({ length: daysInMonth }, (_, index) => index + 1),
+    ];
+  }, [year, month]);
+
+  const getDateKey = (dateValue: string | Date) => {
+    const date = new Date(dateValue);
+
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
+
+
+  const tasksByDate = useMemo(() => {
+    return tasks.reduce<Record<string, CalendarTask[]>>((acc, task) => {
+      const dateKey = getDateKey(task.deadline);
+
+      if (!acc[dateKey]) {
+        acc[dateKey] = [];
+      }
+
+      acc[dateKey].push(task);
+      return acc;
+    }, {});
+  }, [tasks]);
+
+  const upcomingTasks = useMemo(() => {
+    const now = new Date();
+
+    return tasks
+        .filter((task) => new Date(task.deadline) >= now)
+        .slice(0, 5);
+  }, [tasks]);
+
+  const formatDeadline = (deadline: string) => {
+    return new Date(deadline).toLocaleDateString('ru-RU', {
+      day: 'numeric',
+      month: 'long',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const goToPreviousMonth = () => {
+    setCurrentDate(new Date(year, month - 1, 1));
+  };
+
+  const goToNextMonth = () => {
+    setCurrentDate(new Date(year, month + 1, 1));
+  };
+
+  const formatMonth = currentDate.toLocaleDateString('ru-RU', {
+    month: 'long',
+    year: 'numeric',
+  });
+
+  const todayKey = getDateKey(new Date());
 
   return (
-    <div className="container">
-      <div className="page-header">
-        <h2 className="page-title">Календарь дедлайнов</h2>
-      </div>
-
-      <div className="calendar-wrapper">
-        <div className="calendar-header-nav">
-          <button className="btn-secondary" style={{ padding: '6px 12px' }}>&larr;</button>
-          <h3 style={{ margin: 0, fontSize: '18px' }}>Апрель 2026</h3>
-          <button className="btn-secondary" style={{ padding: '6px 12px' }}>&rarr;</button>
+      <div className="container">
+        <div className="page-header">
+          <h2 className="page-title">Календарь дедлайнов</h2>
         </div>
 
-        <div className="calendar-grid">
-          {/* Шапка с днями недели */}
-          {weekDays.map(day => (
-            <div key={day} className="calendar-day-name">{day}</div>
-          ))}
+        <div className="calendar-wrapper">
+          <div className="calendar-header-nav">
+            <button className="btn-secondary" onClick={goToPreviousMonth}>
+              &larr;
+            </button>
 
-          {/* Пустые ячейки (понедельник, вторник) */}
-          {emptyDays.map((_, i) => (
-            <div key={`empty-${i}`} className="calendar-day empty"></div>
-          ))}
+            <h3 style={{margin: 0, fontSize: '18px', textTransform: 'capitalize'}}>
+              {formatMonth}
+            </h3>
 
-          {/* Дни месяца */}
-          {daysInMonth.map(day => {
-            // Фейковая логика: помечаем 4 число как "сегодня", а 15-е как день с двумя дедлайнами
-            const isToday = day === 4;
-            const hasDeadlines = day === 15;
-            const hasCompletedTask = day === 10;
+            <button className="btn-secondary" onClick={goToNextMonth}>
+              &rarr;
+            </button>
+          </div>
 
-            return (
-              <div key={day} className={`calendar-day ${isToday ? 'today' : ''}`}>
-                <div className="day-number">{day}</div>
-                
-                {/* Если сегодня, рисуем горящий дедлайн */}
-                {isToday && (
-                  <Link to="/tasks/101" className="calendar-event-pill">
-                    Презентация UniFlow
-                  </Link>
-                )}
+          {loading && <p>Загрузка календаря...</p>}
+          {error && <p style={{color: 'var(--color-primary)'}}>{error}</p>}
+          {!loading && !error && (
+              <div className="calendar-grid">
+                {weekDays.map((day) => (
+                    <div key={day} className="calendar-day-name">
+                      {day}
+                    </div>
+                ))}
 
-                {/* Выполненная задача в прошлом */}
-                {hasCompletedTask && (
-                  <Link to="/tasks/103" className="calendar-event-pill done">
-                    Лабораторная №1
-                  </Link>
-                )}
+                {calendarDays.map((day, index) => {
+                  if (!day) {
+                    return <div key={`empty-${index}`} className="calendar-day empty"/>;
+                  }
 
-                {/* Несколько дедлайнов в один день */}
-                {hasDeadlines && (
-                  <>
-                    <Link to="/tasks/102" className="calendar-event-pill">
-                      Эссе по истории
-                    </Link>
-                    <Link to="/tasks/104" className="calendar-event-pill">
-                      Тест по матану
-                    </Link>
-                  </>
-                )}
+                  const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+                  const isToday = dateKey === todayKey;
+
+                  const dayTasks = tasksByDate[dateKey] ?? [];
+
+                  return (
+                      <div key={dateKey} className={`calendar-day ${isToday ? 'today' : ''}`}>
+                        <div className="day-number">{day}</div>
+                        {dayTasks.map((task) => (
+                            <Link
+                                key={task.id}
+                                to={`/tasks/${task.id}`}
+                                className={`calendar-event-pill ${task.is_completed ? 'done' : ''}`}
+                                title={task.title}
+                            >
+                              {task.title}
+                            </Link>
+                        ))}
+                      </div>
+                  );
+                })}
               </div>
-            );
-          })}
+          )}
         </div>
-      </div>
+        <div style={{marginTop: '20px'}}>
+          <h3 className="section-title">Ближайшие дедлайны</h3>
 
-      <div style={{ marginTop: '20px' }}>
-        <h3 className="section-title">Предстоящие события списком</h3>
-        <div className="task-list">
-          <Link to="/tasks/101" className="task-item">
-            <div style={{ fontWeight: '500' }}>Презентация UniFlow</div>
-            <div className="deadline-badge urgent">Сегодня 23:59</div>
-          </Link>
-          <Link to="/tasks/102" className="task-item">
-            <div style={{ fontWeight: '500' }}>Эссе по истории</div>
-            <div className="deadline-badge">15 апреля 12:00</div>
-          </Link>
+          <div className="task-list">
+            {upcomingTasks.length === 0 && <p style={{margin: 10}}>Ближайших дедлайнов нет</p>}
+
+            {upcomingTasks.map((task) => (
+                <Link key={task.id} to={`/tasks/${task.id}`} className="task-item">
+                  <div style={{fontWeight: 500}}>{task.title}</div>
+                  <div className={`deadline-badge ${task.is_completed ? '' : 'urgent'}`}>
+                    {task.is_completed ? 'Выполнено' : formatDeadline(task.deadline)}
+                  </div>
+                </Link>
+            ))}
+          </div>
         </div>
+
       </div>
-    </div>
   );
 }

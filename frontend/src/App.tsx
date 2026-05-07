@@ -27,6 +27,14 @@ function Navigation() {
         navigate('/');
     };
 
+    const getNavLinkStyle = (path: string) => ({
+        textDecoration: 'none',
+        color: location.pathname.startsWith(path)
+            ? 'var(--color-primary)'
+            : 'var(--color-text-main)',
+        fontWeight: location.pathname.startsWith(path) ? 700 : 500,
+    });
+
     useEffect(() => {
         if (location.pathname === '/') {
             setFullName('');
@@ -76,12 +84,25 @@ function Navigation() {
       <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 style={{ color: 'var(--color-primary)', fontSize: '24px' }}>UniFlow</h1>
         <nav style={{ display: 'flex', gap: '20px' }}>
+            <Link to="/courses" style={getNavLinkStyle('/courses')}>
+                Курсы
+            </Link>
+
+            <Link to="/calendar" style={getNavLinkStyle('/calendar')}>
+                Календарь
+            </Link>
         {fullName && (
-        <span style={{ color: 'var(--color-text-main)' }}>
-            {fullName}
-        </span>
+            <span
+                style={{
+                    color: 'var(--color-text-muted)',
+                    paddingLeft: '20px',
+                    borderLeft: '1px solid var(--color-border)',
+                    whiteSpace: 'nowrap',
+                }}
+            >
+                {fullName}
+            </span>
         )}
-        <Link to="/courses" style={{ textDecoration: 'none', color: 'var(--color-text-main)' }}>Курсы</Link>
         <button
             type="button"
             onClick={handleLogout}
