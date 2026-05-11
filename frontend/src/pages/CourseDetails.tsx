@@ -173,13 +173,20 @@ export default function CourseDetails() {
     const normalizedTitle = newTaskTitle.trim();
     const normalizedDeadline = newTaskDeadline || null;
 
-    const { data: existingTask, error: duplicateCheckError } = await supabase
-        .from('tasks')
-        .select('id')
-        .eq('course_id', id)
-        .eq('title', normalizedTitle)
-        .eq('deadline', normalizedDeadline)
-        .maybeSingle();
+    let duplicateQuery = supabase
+  .from('tasks')
+  .select('id')
+  .eq('course_id', id)
+  .eq('title', normalizedTitle);
+
+if (normalizedDeadline) {
+  duplicateQuery = duplicateQuery.eq('deadline', normalizedDeadline);
+} else {
+  duplicateQuery = duplicateQuery.is('deadline', null);
+}
+
+const { data: existingTask, error: duplicateCheckError } =
+  await duplicateQuery.maybeSingle();
 
     if (duplicateCheckError) {
       setErrorMessage('Ошибка проверки дубликата задачи: ' + duplicateCheckError.message);
@@ -453,20 +460,39 @@ export default function CourseDetails() {
             }}
           />
 
-          <input
-            type="datetime-local"
-            value={newTaskDeadline}
-            onChange={(e) => setNewTaskDeadline(e.target.value)}
-            disabled={isAddingTask}
-            style={{
-              padding: '8px 12px',
-              borderRadius: '8px',
-              border: '1px solid var(--color-border)',
-              background: 'var(--color-bg-secondary)',
-              color: 'var(--color-text)',
-              opacity: isAddingTask ? 0.7 : 1,
-            }}
-          />
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+  <input
+    type="datetime-local"
+    value={newTaskDeadline}
+    onChange={(e) => setNewTaskDeadline(e.target.value)}
+    disabled={isAddingTask}
+    style={{
+      padding: '8px 12px',
+      borderRadius: '8px',
+      border: '1px solid var(--color-border)',
+      background: 'var(--color-bg-secondary)',
+      color: 'var(--color-text)',
+      opacity: isAddingTask ? 0.7 : 1,
+    }}
+  />
+
+  {newTaskDeadline && (
+    <button
+      type="button"
+      onClick={() => setNewTaskDeadline('')}
+      style={{
+        border: 'none',
+        background: 'transparent',
+        cursor: 'pointer',
+        fontSize: '18px',
+        color: 'var(--color-text-muted)',
+      }}
+      title="Убрать дедлайн"
+    >
+      ✕
+    </button>
+  )}
+</div>
 
           <button
             className="btn-primary"
